@@ -92,7 +92,7 @@ void loop() {
   
   for (int i = 0; i < imageCount; i++) {
     // 画面をクリア
-    tft.fillScreen(ST77XX_BLACK);
+    
     
     // 現在の画像を表示
     drawImageFitScreen(images[i], H00_WIDTH, H00_HEIGHT);
