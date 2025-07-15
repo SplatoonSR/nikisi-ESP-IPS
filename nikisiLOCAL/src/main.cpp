@@ -14,6 +14,21 @@
 // ST7789ディスプレイオブジェクト
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
+// 画像を拡大表示する関数
+void drawScaledBitmap(int16_t x, int16_t y, const uint16_t* bitmap, int16_t w, int16_t h, int16_t scale) {
+  for (int16_t i = 0; i < h; i++) {
+    for (int16_t j = 0; j < w; j++) {
+      uint16_t pixel = pgm_read_word(&bitmap[i * w + j]);
+      // 拡大倍率分だけピクセルを複製
+      for (int16_t sy = 0; sy < scale; sy++) {
+        for (int16_t sx = 0; sx < scale; sx++) {
+          tft.drawPixel(x + j * scale + sx, y + i * scale + sy, pixel);
+        }
+      }
+    }
+  }
+}
+
 // より高速な拡大表示関数
 void drawScaledBitmapFast(int16_t x, int16_t y, const uint16_t* bitmap, int16_t w, int16_t h, int16_t scale) {
   for (int16_t i = 0; i < h; i++) {
@@ -64,13 +79,28 @@ void setup() {
   tft.setRotation(0);
   tft.fillScreen(ST77XX_BLACK);
   
-  // 画面サイズに合わせて自動拡大
-  drawImageFitScreen(H00, H00_WIDTH, H00_HEIGHT);
-  
-  Serial.println("Auto-scaled image displayed!");
+  Serial.println("Auto-scaled image animation start!");
 }
 
 void loop() {
-  // 何もしない（画像表示のみ）
+    // 画像配列とサイズ配列を定義
+  const uint16_t* images[] = {
+    H00, H10, H20, H30, H40, H50,H60,H70,H80,H90
+  };
+
+  const int imageCount = 9; // H00からH90まで9枚
+  
+  for (int i = 0; i < imageCount; i++) {
+    // 画面をクリア
+    tft.fillScreen(ST77XX_BLACK);
+    
+    // 現在の画像を表示
+    drawImageFitScreen(images[i], H00_WIDTH, H00_HEIGHT);
+    
+    Serial.print("Displaying image H");
+    if (i < 10) Serial.print("0");
+    Serial.println(i);
+  }
+    // 1秒待機
   delay(1000);
 }
