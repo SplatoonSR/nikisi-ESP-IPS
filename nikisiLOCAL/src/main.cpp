@@ -105,7 +105,7 @@ void updateClock() {
   int16_t screenH = gfx->height();  // 横向きなので170
   
   // 6桁 + コロン2つのレイアウト（横向きに最適化）
-  int16_t digitW = screenW / 8;     // 余裕をもって8分割
+  int16_t digitW = screenW / 7;     // 余裕をもって8分割
   int16_t digitH = (screenH < ((digitW * ih) / iw)) ? screenH : ((digitW * ih) / iw);
   
   // 中央揃えで配置
