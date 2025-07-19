@@ -3,6 +3,8 @@
 #include "image_data.h"
 #include <WiFi.h>
 #include <time.h>
+#include "config.h"  // WiFi設定をインクルード
+
 // ST7789 TFTディスプレイピン定義
 #define TFT_MOSI  6
 #define TFT_SCLK  4
@@ -14,13 +16,6 @@
 Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCLK, TFT_MOSI, -1);
 Arduino_GFX *gfx = new Arduino_ST7789(bus, TFT_RST, 1 /* rotation */, true /* IPS */, 170 /* width */, 320 /* height */, 35 /* col offset 1 */, 0 /* row offset 1 */, 35 /* col offset 2 */, 0 /* row offset 2 */);
 
-// WiFi設定
-const char *ssid = "MY-SSID";     // WiFi SSID を入力
-const char *password = "MY-PASSWORD"; // WiFi パスワードを入力
-
-// 時刻設定
-const char *timeZone = "JST-9";
-const char *server = "ntp.nict.jp";
 struct tm localTime;
 
 // 時計変数
