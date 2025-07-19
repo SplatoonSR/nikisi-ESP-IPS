@@ -3,7 +3,7 @@
 #include "image_data.h"
 #include <WiFi.h>
 #include <time.h>
-#include "config.h"  // WiFi設定をインクルード
+#include "config.h"  // WiFi設定をインクルード　*ssid　*password　*server　*timeZoneを外部で定義
 
 // ST7789 TFTディスプレイピン定義
 #define TFT_MOSI  6
