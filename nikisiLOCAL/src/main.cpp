@@ -83,10 +83,10 @@ void drawNixieDigit(int16_t x, int16_t y, int digit, int16_t dw, int16_t dh) {
 
 // コロン表示関数
 void drawColon(int16_t x, int16_t y, bool visible) {
-  int16_t dotSize = 8;
+  int16_t dotSize = 3;
   int16_t dotSpacing = 30;
   
-  uint16_t color = visible ? ORANGE : BLACK;
+  uint16_t color = visible ? 0xFEF0 : BLACK;
   gfx->fillCircle(x, y - dotSpacing/2, dotSize, color);
   gfx->fillCircle(x, y + dotSpacing/2, dotSize, color);
 }
