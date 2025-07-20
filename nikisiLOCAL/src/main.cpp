@@ -8,13 +8,29 @@
 // ST7789 TFTディスプレイピン定義
 #define TFT_MOSI  6
 #define TFT_SCLK  4
-#define TFT_CS    7
-#define TFT_RST   3
+#define TFT_RST   -1
 #define TFT_DC    2
 
-// Arduino_GFX ディスプレイオブジェクト
-Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCLK, TFT_MOSI, -1);
-Arduino_GFX *gfx = new Arduino_ST7789(bus, TFT_RST, 1 /* rotation */, true /* IPS */, 170 /* width */, 320 /* height */, 35 /* col offset 1 */, 0 /* row offset 1 */, 35 /* col offset 2 */, 0 /* row offset 2 */);
+#define TFT_CS_1  7 //ディスプレイ1 (テスト用)
+#define TFT_CS_2  8 //ディスプレイ2 (テスト用)
+#define TFT_CS_3  9 //ディスプレイ3 (テスト用)
+#define TFT_CS_4  10 //ディスプレイ4 (テスト用)
+
+
+
+// Arduino_GFX ディスプレイオブジェクト（4個のテスト用）
+Arduino_DataBus *bus1 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_1, TFT_SCLK, TFT_MOSI, -1);
+Arduino_DataBus *bus2 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_2, TFT_SCLK, TFT_MOSI, -1);
+Arduino_DataBus *bus3 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_3, TFT_SCLK, TFT_MOSI, -1);
+Arduino_DataBus *bus4 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_4, TFT_SCLK, TFT_MOSI, -1);
+
+Arduino_GFX *gfx1 = new Arduino_ST7789(bus1, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 秒一の位
+Arduino_GFX *gfx2 = new Arduino_ST7789(bus2, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 秒十の位
+Arduino_GFX *gfx3 = new Arduino_ST7789(bus3, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 分一の位
+Arduino_GFX *gfx4 = new Arduino_ST7789(bus4, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 分十の位
+
+// ディスプレイ配列（4個のテスト用）
+Arduino_GFX* displays[4] = {gfx1, gfx2, gfx3, gfx4};
 
 struct tm localTime;
 
@@ -47,12 +63,6 @@ void scaleImageToBuffer(const uint16_t* bitmap, int16_t w, int16_t h, int16_t sc
   }
 }
 
-// 超高速描画（Arduino_GFX一括転送）
-void drawBufferedImage() {
-  // Arduino_GFXの高速描画関数を使用
-  gfx->draw16bitRGBBitmap(displayX, displayY, imageBuffer, scaledWidth, scaledHeight);
-}
-
 // スケーリング関数（nixie_tube.inoと同じ方式）
 void scaleImage(const uint16_t* src, int w1, int h1, uint16_t* dst, int w2, int h2) {
     for (int y = 0; y < h2; y++) {
@@ -64,7 +74,24 @@ void scaleImage(const uint16_t* src, int w1, int h1, uint16_t* dst, int w2, int 
     }
 }
 
-// ニキシー管数字表示関数
+// ニキシー管数字表示関数（指定ディスプレイに表示）
+void drawNixieDigitOnDisplay(Arduino_GFX* display, int digit) {
+  const uint16_t* nixieImages[] = {
+    H00, H10, H20, H30, H40, H50, H60, H70, H80, H90
+  };
+  
+  if (digit >= 0 && digit <= 9) {
+    // ディスプレイ全体にニキシー管画像を表示
+    int16_t screenW = display->width();
+    int16_t screenH = display->height();
+    
+    // 画像をディスプレイサイズにスケーリング
+    scaleImage(nixieImages[digit], iw, ih, imageBuffer, screenW, screenH);
+    display->draw16bitRGBBitmap(0, 0, imageBuffer, screenW, screenH);
+  }
+}
+
+// ニキシー管数字表示関数（旧版 - 一つのディスプレイ用）
 void drawNixieDigit(int16_t x, int16_t y, int digit, int16_t dw, int16_t dh) {
   const uint16_t* nixieImages[] = {
     H00, H10, H20, H30, H40, H50, H60, H70, H80, H90
@@ -72,7 +99,7 @@ void drawNixieDigit(int16_t x, int16_t y, int digit, int16_t dw, int16_t dh) {
   
   if (digit >= 0 && digit <= 9) {
     scaleImage(nixieImages[digit], iw, ih, imageBuffer, dw, dh);
-    gfx->draw16bitRGBBitmap(x, y, imageBuffer, dw, dh);
+    gfx1->draw16bitRGBBitmap(x, y, imageBuffer, dw, dh);
   }
 }
 
@@ -82,66 +109,37 @@ void drawColon(int16_t x, int16_t y, bool visible) {
   int16_t dotSpacing = 30;
   
   uint16_t color = visible ? 0xFEF0 : BLACK;
-  gfx->fillCircle(x, y - dotSpacing/2, dotSize, color);
-  gfx->fillCircle(x, y + dotSpacing/2, dotSize, color);
+  gfx1->fillCircle(x, y - dotSpacing/2, dotSize, color);
+  gfx1->fillCircle(x, y + dotSpacing/2, dotSize, color);
 }
 
-// 時計表示更新関数
+// 時計表示更新関数（4個のディスプレイでテスト用）
 void updateClock() {
-  int h1 = hour / 10;
-  int h0 = hour % 10;
-  int m1 = minute / 10;
-  int m0 = minute % 10;
-  int s1 = second / 10;
-  int s0 = second % 10;
+  int s0 = second % 10; // 秒一の位
+  int s1 = second / 10; // 秒十の位
+  int m0 = minute % 10; // 分一の位
+  int m1 = minute / 10; // 分十の位
   
-  // 横向き表示用のレイアウト計算
-  int16_t screenW = gfx->width();   // 横向きなので320
-  int16_t screenH = gfx->height();  // 横向きなので170
-  
-  // 6桁 + コロン2つのレイアウト（横向きに最適化）
-  int16_t digitW = screenW / 7;     // 余裕をもって8分割
-  int16_t digitH = (screenH < ((digitW * ih) / iw)) ? screenH : ((digitW * ih) / iw);
-  
-  // 中央揃えで配置
-  int16_t totalWidth = digitW * 6 + 30; // 6桁 + コロン2つ分
-  int16_t startX = (screenW - totalWidth) / 2;
-  int16_t startY = (screenH - digitH) / 2;
-  
-  // 時間表示（変更された桁のみ更新）
-  if (bh1 != h1) {
-    drawNixieDigit(startX, startY, h1, digitW, digitH);
-    bh1 = h1;
+  // テスト用：秒:分を表示（逆順）
+  if (bs0 != s0) {
+    drawNixieDigitOnDisplay(gfx1, s0); // ディスプレイ1: 秒一の位
+    bs0 = s0;
+    Serial.println("Display 1 updated: " + String(s0));
   }
-  if (bh0 != h0) {
-    drawNixieDigit(startX + digitW, startY, h0, digitW, digitH);
-    bh0 = h0;
-  }
-  
-  // コロン1
-  drawColon(startX + digitW * 2 + 5, startY + digitH/2, (second % 2 == 0));
-  
-  // 分表示
-  if (bm1 != m1) {
-    drawNixieDigit(startX + digitW * 2 + 10, startY, m1, digitW, digitH);
-    bm1 = m1;
+  if (bs1 != s1) {
+    drawNixieDigitOnDisplay(gfx2, s1); // ディスプレイ2: 秒十の位
+    bs1 = s1;
+    Serial.println("Display 2 updated: " + String(s1));
   }
   if (bm0 != m0) {
-    drawNixieDigit(startX + digitW * 3 + 10, startY, m0, digitW, digitH);
+    drawNixieDigitOnDisplay(gfx3, m0); // ディスプレイ3: 分一の位
     bm0 = m0;
+    Serial.println("Display 3 updated: " + String(m0));
   }
-  
-  // コロン2
-  drawColon(startX + digitW * 4 + 15, startY + digitH/2, (second % 2 == 0));
-  
-  // 秒表示
-  if (bs1 != s1) {
-    drawNixieDigit(startX + digitW * 4 + 20, startY, s1, digitW, digitH);
-    bs1 = s1;
-  }
-  if (bs0 != s0) {
-    drawNixieDigit(startX + digitW * 5 + 20, startY, s0, digitW, digitH);
-    bs0 = s0;
+  if (bm1 != m1) {
+    drawNixieDigitOnDisplay(gfx4, m1); // ディスプレイ4: 分十の位
+    bm1 = m1;
+    Serial.println("Display 4 updated: " + String(m1));
   }
 }
 
@@ -166,12 +164,22 @@ void initializeWiFi() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Nixie Tube Clock Start");
+  Serial.println("Nixie Tube Clock Start (4 Display Test)");
   
-  // Arduino_GFX ST7789ディスプレイ初期化
-  gfx->begin();
-  gfx->fillScreen(BLACK);
-  
+    pinMode(TFT_RST, OUTPUT);
+  digitalWrite(TFT_RST, HIGH); //RESET off
+  delay(100); // 少し待つ
+  // 4個のディスプレイを初期化
+  for (int i = 0; i < 4; i++) {
+    displays[i]->begin();
+    // displays[i]->fillScreen(BLACK);
+    // Serial.println("Display " + String(i+1) + " initialized");
+  }
+    for (int i = 0; i < 4; i++) {
+    displays[i]->begin();
+    // displays[i]->fillScreen(BLACK);
+    // Serial.println("Display " + String(i+1) + " initialized");
+  }
   // WiFi接続
   initializeWiFi();
   
