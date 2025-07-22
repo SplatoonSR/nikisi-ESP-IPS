@@ -11,26 +11,32 @@
 #define TFT_RST   -1
 #define TFT_DC    2
 
-#define TFT_CS_1  7 //ディスプレイ1 (テスト用)
-#define TFT_CS_2  8 //ディスプレイ2 (テスト用)
-#define TFT_CS_3  9 //ディスプレイ3 (テスト用)
-#define TFT_CS_4  10 //ディスプレイ4 (テスト用)
+#define TFT_CS_1  7 //ディスプレイ1 (秒一の位)
+#define TFT_CS_2  8 //ディスプレイ2 (秒十の位)
+#define TFT_CS_3  9 //ディスプレイ3 (分一の位)
+#define TFT_CS_4  10 //ディスプレイ4 (分十の位)
+#define TFT_CS_5  20 //ディスプレイ5 (時一の位)
+#define TFT_CS_6  21 //ディスプレイ6 (時十の位)
 
 
 
-// Arduino_GFX ディスプレイオブジェクト（4個のテスト用）
+// Arduino_GFX ディスプレイオブジェクト（6個）
 Arduino_DataBus *bus1 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_1, TFT_SCLK, TFT_MOSI, -1);
 Arduino_DataBus *bus2 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_2, TFT_SCLK, TFT_MOSI, -1);
 Arduino_DataBus *bus3 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_3, TFT_SCLK, TFT_MOSI, -1);
 Arduino_DataBus *bus4 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_4, TFT_SCLK, TFT_MOSI, -1);
+Arduino_DataBus *bus5 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_5, TFT_SCLK, TFT_MOSI, -1);
+Arduino_DataBus *bus6 = new Arduino_ESP32SPI(TFT_DC, TFT_CS_6, TFT_SCLK, TFT_MOSI, -1);
 
 Arduino_GFX *gfx1 = new Arduino_ST7789(bus1, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 秒一の位
 Arduino_GFX *gfx2 = new Arduino_ST7789(bus2, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 秒十の位
 Arduino_GFX *gfx3 = new Arduino_ST7789(bus3, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 分一の位
 Arduino_GFX *gfx4 = new Arduino_ST7789(bus4, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 分十の位
+Arduino_GFX *gfx5 = new Arduino_ST7789(bus5, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 時一の位
+Arduino_GFX *gfx6 = new Arduino_ST7789(bus6, TFT_RST, 2, true, 170, 320, 35, 0, 35, 0); // 時十の位
 
-// ディスプレイ配列（4個のテスト用）
-Arduino_GFX* displays[4] = {gfx1, gfx2, gfx3, gfx4};
+// ディスプレイ配列（6個）
+Arduino_GFX* displays[6] = {gfx1, gfx2, gfx3, gfx4, gfx5, gfx6};
 
 struct tm localTime;
 
@@ -113,33 +119,45 @@ void drawColon(int16_t x, int16_t y, bool visible) {
   gfx1->fillCircle(x, y + dotSpacing/2, dotSize, color);
 }
 
-// 時計表示更新関数（4個のディスプレイでテスト用）
+// 時計表示更新関数（6個のディスプレイ用）
 void updateClock() {
-  int s0 = second % 10; // 秒一の位
-  int s1 = second / 10; // 秒十の位
-  int m0 = minute % 10; // 分一の位
+  int h1 = hour / 10;   // 時十の位
+  int h0 = hour % 10;   // 時一の位
   int m1 = minute / 10; // 分十の位
+  int m0 = minute % 10; // 分一の位
+  int s1 = second / 10; // 秒十の位
+  int s0 = second % 10; // 秒一の位
   
-  // テスト用：秒:分を表示（逆順）
+  // HH:MM:SS形式で表示（右から左の順番で修正）
   if (bs0 != s0) {
     drawNixieDigitOnDisplay(gfx1, s0); // ディスプレイ1: 秒一の位
     bs0 = s0;
-    Serial.println("Display 1 updated: " + String(s0));
+    // Serial.println("Display 1 updated: " + String(s0));
   }
   if (bs1 != s1) {
     drawNixieDigitOnDisplay(gfx2, s1); // ディスプレイ2: 秒十の位
     bs1 = s1;
-    Serial.println("Display 2 updated: " + String(s1));
+    // Serial.println("Display 2 updated: " + String(s1));
   }
   if (bm0 != m0) {
     drawNixieDigitOnDisplay(gfx3, m0); // ディスプレイ3: 分一の位
     bm0 = m0;
-    Serial.println("Display 3 updated: " + String(m0));
+    // Serial.println("Display 3 updated: " + String(m0));
   }
   if (bm1 != m1) {
     drawNixieDigitOnDisplay(gfx4, m1); // ディスプレイ4: 分十の位
     bm1 = m1;
     Serial.println("Display 4 updated: " + String(m1));
+  }
+  if (bh0 != h0) {
+    drawNixieDigitOnDisplay(gfx5, h0); // ディスプレイ5: 時一の位
+    bh0 = h0;
+    // Serial.println("Display 5 updated: " + String(h0));
+  }
+  if (bh1 != h1) {
+    drawNixieDigitOnDisplay(gfx6, h1); // ディスプレイ6: 時十の位
+    bh1 = h1;
+    // Serial.println("Display 6 updated: " + String(h1));
   }
 }
 
@@ -166,20 +184,35 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Nixie Tube Clock Start (4 Display Test)");
   
-    pinMode(TFT_RST, OUTPUT);
+  pinMode(TFT_RST, OUTPUT);
+  pinMode(TFT_CS_1, OUTPUT);
+  pinMode(TFT_CS_2, OUTPUT);
+  pinMode(TFT_CS_3, OUTPUT);
+  pinMode(TFT_CS_4, OUTPUT);
+  pinMode(TFT_CS_5, OUTPUT);
+  pinMode(TFT_CS_6, OUTPUT);
   digitalWrite(TFT_RST, HIGH); //RESET off
+  digitalWrite(TFT_CS_1, HIGH); //CS off
+  digitalWrite(TFT_CS_2, HIGH); //CS off
+  digitalWrite(TFT_CS_3, HIGH); //CS off
+  digitalWrite(TFT_CS_4, HIGH); //CS off
+  digitalWrite(TFT_CS_5, HIGH); //CS off
+  digitalWrite(TFT_CS_6, HIGH); //CS off
   delay(100); // 少し待つ
   // 4個のディスプレイを初期化
-  for (int i = 0; i < 4; i++) {
-    displays[i]->begin();
+  for (int i = 0; i < 6; i++) {
+    displays[i]->begin(10000000);
     // displays[i]->fillScreen(BLACK);
     // Serial.println("Display " + String(i+1) + " initialized");
   }
-    for (int i = 0; i < 4; i++) {
-    displays[i]->begin();
+  delay(1000);
+    for (int i = 0; i < 6; i++) {
+    displays[i]->begin(10000000);
     // displays[i]->fillScreen(BLACK);
     // Serial.println("Display " + String(i+1) + " initialized");
   }
+  
+
   // WiFi接続
   initializeWiFi();
   
