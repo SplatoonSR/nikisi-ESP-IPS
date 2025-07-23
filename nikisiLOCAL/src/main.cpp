@@ -2,6 +2,9 @@
 #include "Arduino_GFX_Library.h"
 #include "image_data.h"
 #include <WiFi.h>
+#include <WebServer.h>
+#include <SPIFFS.h>
+#include <ArduinoJson.h>
 #include <time.h>
 #include "config.h"  // WiFi設定をインクルード　*ssid　*password　*server　*timeZoneを外部で定義
 
@@ -38,6 +41,9 @@ Arduino_GFX *gfx6 = new Arduino_ST7789(bus6, TFT_RST, 2, true, 170, 320, 35, 0, 
 // ディスプレイ配列（6個）
 Arduino_GFX* displays[6] = {gfx1, gfx2, gfx3, gfx4, gfx5, gfx6};
 
+// Webサーバーオブジェクト
+WebServer webServer(80);
+
 struct tm localTime;
 
 // 時計変数
@@ -53,6 +59,13 @@ int ih = 134;  // 高さ
 uint16_t imageBuffer[170*320] = {0}; // 最大画面サイズで固定確保
 int16_t scaledWidth, scaledHeight;
 int16_t displayX, displayY;
+
+// カスタム画像用バッファ（10個の数字分）
+uint16_t* customImages[10] = {nullptr}; // カスタム画像ポインタ配列
+bool useCustomImages = false; // カスタム画像を使用するかのフラグ
+const int maxImageSize = 170 * 320; // 画像の最大サイズ（ディスプレイサイズ）
+const int maxImageWidth = 170;  // 最大幅
+const int maxImageHeight = 320; // 最大高さ
 
 // 高速スケーリング関数（Arduino_GFX最適化版）
 void scaleImageToBuffer(const uint16_t* bitmap, int16_t w, int16_t h, int16_t scale) {
@@ -80,7 +93,48 @@ void scaleImage(const uint16_t* src, int w1, int h1, uint16_t* dst, int w2, int 
     }
 }
 
-// ニキシー管数字表示関数（指定ディスプレイに表示）
+// カスタム画像をSPIFFSからロードする関数
+bool loadCustomImage(int digit) {
+  String filename = "/custom_" + String(digit) + ".rgb565";
+  
+  if (!SPIFFS.exists(filename)) {
+    Serial.printf("Custom image file not found: %s\n", filename.c_str());
+    return false;
+  }
+  
+  File file = SPIFFS.open(filename, "r");
+  if (!file) {
+    Serial.printf("Failed to open file: %s\n", filename.c_str());
+    return false;
+  }
+  
+  size_t fileSize = file.size();
+  if (fileSize != maxImageSize * 2) { // RGB565は1ピクセル2バイト
+    Serial.printf("Invalid file size: %zu (expected: %d)\n", fileSize, maxImageSize * 2);
+    file.close();
+    return false;
+  }
+  
+  // メモリを確保
+  if (customImages[digit] != nullptr) {
+    delete[] customImages[digit];
+  }
+  customImages[digit] = new uint16_t[maxImageSize];
+  
+  // ファイルから画像データを読み込み
+  file.read((uint8_t*)customImages[digit], fileSize);
+  file.close();
+  
+  Serial.printf("Loaded custom image for digit %d\n", digit);
+  return true;
+}
+
+// 全てのカスタム画像をロードする関数
+void loadAllCustomImages() {
+  for (int i = 0; i < 10; i++) {
+    loadCustomImage(i);
+  }
+}
 void drawNixieDigitOnDisplay(Arduino_GFX* display, int digit) {
   const uint16_t* nixieImages[] = {
     H00, H10, H20, H30, H40, H50, H60, H70, H80, H90
@@ -91,8 +145,18 @@ void drawNixieDigitOnDisplay(Arduino_GFX* display, int digit) {
     int16_t screenW = display->width();
     int16_t screenH = display->height();
     
+    // カスタム画像を使用するかチェック
+    const uint16_t* imageToUse;
+    if (useCustomImages && customImages[digit] != nullptr) {
+      imageToUse = customImages[digit];
+      Serial.printf("Using custom image for digit %d\n", digit);
+    } else {
+      imageToUse = nixieImages[digit];
+      Serial.printf("Using default image for digit %d\n", digit);
+    }
+    
     // 画像をディスプレイサイズにスケーリング
-    scaleImage(nixieImages[digit], iw, ih, imageBuffer, screenW, screenH);
+    scaleImage(imageToUse, iw, ih, imageBuffer, screenW, screenH);
     display->draw16bitRGBBitmap(0, 0, imageBuffer, screenW, screenH);
   }
 }
@@ -147,7 +211,7 @@ void updateClock() {
   if (bm1 != m1) {
     drawNixieDigitOnDisplay(gfx4, m1); // ディスプレイ4: 分十の位
     bm1 = m1;
-    Serial.println("Display 4 updated: " + String(m1));
+    // Serial.println("Display 4 updated: " + String(m1));
   }
   if (bh0 != h0) {
     drawNixieDigitOnDisplay(gfx5, h0); // ディスプレイ5: 時一の位
@@ -159,6 +223,126 @@ void updateClock() {
     bh1 = h1;
     // Serial.println("Display 6 updated: " + String(h1));
   }
+}
+
+// 表示リフレッシュ関数
+void handleRefresh() {
+  // 全てのディスプレイを強制更新
+  bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
+  webServer.send(200, "application/json", "{\"success\":true}");
+}
+
+// Webサーバーハンドラー関数
+void handleRoot() {
+  File file = SPIFFS.open("/index.html", "r");
+  if (!file) {
+    webServer.send(404, "text/plain", "File not found");
+    return;
+  }
+  webServer.streamFile(file, "text/html");
+  file.close();
+}
+
+void handleUpload() {
+  // マルチパート/form-dataを処理
+  if (webServer.hasArg("digit")) {
+    int digit = webServer.arg("digit").toInt();
+    
+    if (digit >= 0 && digit <= 9) {
+      // HTTPUploadファイルを取得
+      HTTPUpload& upload = webServer.upload();
+      
+      if (upload.status == UPLOAD_FILE_START) {
+        Serial.printf("Upload Start: %s\n", upload.filename.c_str());
+        Serial.printf("Upload for digit: %d\n", digit);
+        
+      } else if (upload.status == UPLOAD_FILE_WRITE) {
+        // ファイルデータを受信中
+        Serial.printf("Upload Write: %zu bytes\n", upload.currentSize);
+        
+      } else if (upload.status == UPLOAD_FILE_END) {
+        Serial.printf("Upload End: %zu bytes total\n", upload.totalSize);
+        
+        // RGB565フォーマットのサイズチェック（170*320*2バイト = 108800バイト）
+        const size_t expectedSize = 170 * 320 * 2;
+        if (upload.totalSize != expectedSize) {
+          Serial.printf("Invalid file size: %zu (expected: %zu)\n", upload.totalSize, expectedSize);
+          webServer.send(400, "application/json", "{\"success\":false,\"message\":\"Invalid file size for RGB565 format\"}");
+          return;
+        }
+        
+        // 画像データをSPIFFSに保存（RGB565フォーマットとして）
+        String filename = "/custom_" + String(digit) + ".rgb565";
+        File file = SPIFFS.open(filename, "w");
+        if (file) {
+          // 注意: この簡易実装では、アップロードされたファイルが
+          // 既にRGB565フォーマットであることを前提としています
+          // 実際の運用では、JPEG/PNG→RGB565変換が必要です
+          file.write(upload.buf, upload.currentSize);
+          file.close();
+          
+          // メモリにもロード
+          if (loadCustomImage(digit)) {
+            Serial.printf("Saved and loaded custom image for digit %d\n", digit);
+            webServer.send(200, "application/json", "{\"success\":true,\"message\":\"Image uploaded successfully\"}");
+          } else {
+            Serial.printf("Saved but failed to load custom image for digit %d\n", digit);
+            webServer.send(500, "application/json", "{\"success\":false,\"message\":\"Failed to load image to memory\"}");
+          }
+        } else {
+          Serial.println("Failed to save file");
+          webServer.send(500, "application/json", "{\"success\":false,\"message\":\"Failed to save file\"}");
+        }
+      }
+    } else {
+      webServer.send(400, "application/json", "{\"success\":false,\"message\":\"Invalid digit\"}");
+    }
+  } else {
+    webServer.send(400, "application/json", "{\"success\":false,\"message\":\"Missing digit parameter\"}");
+  }
+}
+
+void handleTime() {
+  String timeStr = String(hour) + ":" + String(minute) + ":" + String(second);
+  webServer.send(200, "application/json", "{\"time\":\"" + timeStr + "\"}");
+}
+
+void handleStatus() {
+  // カスタム画像の状態を確認
+  String status = "{";
+  status += "\"useCustomImages\":" + String(useCustomImages ? "true" : "false") + ",";
+  status += "\"customImages\":[";
+  for (int i = 0; i < 10; i++) {
+    if (i > 0) status += ",";
+    status += (customImages[i] != nullptr) ? "true" : "false";
+  }
+  status += "],";
+  status += "\"freeHeap\":" + String(ESP.getFreeHeap());
+  status += "}";
+  webServer.send(200, "application/json", status);
+}
+
+void handleReset() {
+  useCustomImages = false;
+  // カスタム画像メモリを解放
+  for (int i = 0; i < 10; i++) {
+    if (customImages[i] != nullptr) {
+      delete[] customImages[i];
+      customImages[i] = nullptr;
+    }
+  }
+  // 全てのディスプレイを強制更新
+  bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
+  webServer.send(200, "application/json", "{\"success\":true}");
+}
+
+void handleUseCustom() {
+  useCustomImages = true;
+  // カスタム画像をロード
+  loadAllCustomImages();
+  // 全てのディスプレイを強制更新
+  bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
+  webServer.send(200, "application/json", "{\"success\":true}");
 }
 
 // WiFi接続関数
@@ -177,21 +361,21 @@ void initializeWiFi() {
   Serial.println(WiFi.localIP());
   
   // NTP時刻同期
-  configTime(9 * 3600, 0, server); // JST (UTC+9)
+  configTime(9 * 3600, 0, ntpServer); // JST (UTC+9)
 }
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Nixie Tube Clock Start (4 Display Test)");
   
-  pinMode(TFT_RST, OUTPUT);
+  // pinMode(TFT_RST, OUTPUT);
   pinMode(TFT_CS_1, OUTPUT);
   pinMode(TFT_CS_2, OUTPUT);
   pinMode(TFT_CS_3, OUTPUT);
   pinMode(TFT_CS_4, OUTPUT);
   pinMode(TFT_CS_5, OUTPUT);
   pinMode(TFT_CS_6, OUTPUT);
-  digitalWrite(TFT_RST, HIGH); //RESET off
+  // digitalWrite(TFT_RST, HIGH); //RESET off
   digitalWrite(TFT_CS_1, HIGH); //CS off
   digitalWrite(TFT_CS_2, HIGH); //CS off
   digitalWrite(TFT_CS_3, HIGH); //CS off
@@ -205,21 +389,48 @@ void setup() {
     // displays[i]->fillScreen(BLACK);
     // Serial.println("Display " + String(i+1) + " initialized");
   }
-  delay(1000);
-    for (int i = 0; i < 6; i++) {
-    displays[i]->begin(10000000);
-    // displays[i]->fillScreen(BLACK);
-    // Serial.println("Display " + String(i+1) + " initialized");
-  }
+  // delay(1000);
+  //   for (int i = 0; i < 6; i++) {
+  //   displays[i]->begin(10000000);
+  //   // displays[i]->fillScreen(BLACK);
+  //   // Serial.println("Display " + String(i+1) + " initialized");
+  // }
   
 
   // WiFi接続
   initializeWiFi();
   
+  // SPIFFS初期化（画像保存用）
+  if (!SPIFFS.begin(true)) {
+    Serial.println("SPIFFS initialization failed!");
+  } else {
+    Serial.println("SPIFFS initialized successfully");
+    // 起動時にカスタム画像をロード
+    loadAllCustomImages();
+  }
+  
+  // Webサーバールート設定
+  webServer.on("/", handleRoot);
+  webServer.on("/upload", HTTP_POST, handleUpload);
+  webServer.on("/api/time", handleTime);
+  webServer.on("/api/status", handleStatus);
+  webServer.on("/api/reset", HTTP_POST, handleReset);
+  webServer.on("/api/use-custom", HTTP_POST, handleUseCustom);
+  webServer.on("/api/refresh", HTTP_POST, handleRefresh);
+  
+  // Webサーバー開始
+  webServer.begin();
+  Serial.println("Web server started");
+  Serial.print("Access at: http://");
+  Serial.println(WiFi.localIP());
+  
   Serial.println("Nixie Tube Clock Ready!");
 }
 
 void loop() {
+  // Webサーバーリクエスト処理
+  webServer.handleClient();
+  
   // WiFi接続チェック
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected. Reconnecting...");

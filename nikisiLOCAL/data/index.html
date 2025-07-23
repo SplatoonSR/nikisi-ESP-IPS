@@ -5,7 +5,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-      body {
+      <div class="info-box">
+        <h3>📋 画像アップロード仕様</h3>
+        <ul style="text-align: left;">
+          <li><strong>最大サイズ</strong>: 170×320ピクセル（ディスプレイサイズ）</li>
+          <li><strong>対応形式</strong>: JPEG, PNG, BMP, GIF</li>
+          <li><strong>ファイルサイズ</strong>: 512KB以下推奨</li>
+          <li><strong>自動処理</strong>: サイズが異なる場合は自動でリサイズされます</li>
+          <li><strong>注意</strong>: 縦長画像（高さ > 幅）が推奨です</li>
+        </ul>
+      </div>dy {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         margin: 0;
         padding: 20px;
@@ -199,12 +208,18 @@
       </div>
 
       <div class="info-box">
-        <h3>📋 使用方法</h3>
+        <h3>📋 画像アップロード仕様</h3>
         <ul style="text-align: left">
-          <li>各数字（0-9）に対応するカスタム画像をアップロード</li>
-          <li>推奨サイズ: 70×134ピクセル</li>
-          <li>対応形式: JPEG, PNG, BMP, GIF</li>
-          <li>アップロード後、「カスタム画像を使用」ボタンで有効化</li>
+          <li>
+            <strong>最大サイズ</strong>: 170×320ピクセル（ディスプレイサイズ）
+          </li>
+          <li><strong>対応形式</strong>: JPEG, PNG, BMP, GIF</li>
+          <li><strong>ファイルサイズ</strong>: 512KB以下推奨</li>
+          <li>
+            <strong>自動処理</strong>:
+            サイズが異なる場合は自動でリサイズされます
+          </li>
+          <li><strong>注意</strong>: 縦長画像（高さ > 幅）が推奨です</li>
         </ul>
       </div>
 
@@ -406,34 +421,118 @@
 
         const file = fileInput.files[0];
 
-        // ファイルサイズチェック (1MB制限)
-        if (file.size > 1024 * 1024) {
-          setStatus(digit, "ファイルサイズが大きすぎます (1MB以下)", "error");
+        // ファイルサイズチェック (512KB制限)
+        if (file.size > 512 * 1024) {
+          setStatus(digit, "ファイルサイズが大きすぎます (512KB以下)", "error");
           return;
         }
 
-        const formData = new FormData();
-        formData.append("image", file);
-        formData.append("digit", digit);
+        // 画像サイズチェック用Canvas
+        const img = new Image();
+        img.onload = function () {
+          // サイズチェック
+          if (img.width > 170 || img.height > 320) {
+            setStatus(
+              digit,
+              `画像サイズが大きすぎます (最大170×320px, 現在${img.width}×${img.height}px)`,
+              "error"
+            );
+            return;
+          }
 
-        setStatus(digit, "アップロード中...", "uploading");
+          // サイズが適切な場合、アップロード実行
+          performUpload(digit, file);
+        };
 
-        fetch("/upload", {
-          method: "POST",
-          body: formData,
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.success) {
-              setStatus(digit, "✓ アップロード完了", "success");
-            } else {
-              setStatus(digit, `✗ エラー: ${data.message}`, "error");
-            }
-          })
-          .catch((error) => {
-            console.error("Upload error:", error);
-            setStatus(digit, "✗ アップロード失敗", "error");
+        img.onerror = function () {
+          setStatus(digit, "画像ファイルが無効です", "error");
+        };
+
+        // 画像を読み込み
+        img.src = URL.createObjectURL(file);
+      }
+
+      // RGB565フォーマットに変換する関数
+      function convertToRGB565(canvas) {
+        const ctx = canvas.getContext("2d");
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // RGB565データを格納するバッファ
+        const rgb565Buffer = new ArrayBuffer(canvas.width * canvas.height * 2);
+        const rgb565View = new Uint16Array(rgb565Buffer);
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i]; // Red
+          const g = data[i + 1]; // Green
+          const b = data[i + 2]; // Blue
+          // Alpha (data[i + 3]) は無視
+
+          // RGB565フォーマットに変換
+          const r5 = (r >> 3) & 0x1f;
+          const g6 = (g >> 2) & 0x3f;
+          const b5 = (b >> 3) & 0x1f;
+
+          const rgb565 = (r5 << 11) | (g6 << 5) | b5;
+          rgb565View[i / 4] = rgb565;
+        }
+
+        return rgb565Buffer;
+      }
+
+      // 実際のアップロード実行関数
+      function performUpload(digit, file) {
+        setStatus(digit, "画像変換中...", "uploading");
+
+        const img = new Image();
+        img.onload = function () {
+          // Canvasを作成して画像を描画
+          const canvas = document.createElement("canvas");
+          canvas.width = 170; // ディスプレイ幅に合わせる
+          canvas.height = 320; // ディスプレイ高さに合わせる
+
+          const ctx = canvas.getContext("2d");
+          // 画像をCanvasにフィット描画
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // RGB565フォーマットに変換
+          const rgb565Buffer = convertToRGB565(canvas);
+
+          // RGB565データをBlobとして作成
+          const blob = new Blob([rgb565Buffer], {
+            type: "application/octet-stream",
           });
+
+          // FormDataを作成してアップロード
+          const formData = new FormData();
+          formData.append("digit", digit);
+          formData.append("file", blob, `custom_${digit}.rgb565`);
+
+          setStatus(digit, "アップロード中...", "uploading");
+
+          fetch("/upload", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                setStatus(digit, "✓ アップロード完了", "success");
+              } else {
+                setStatus(digit, `✗ エラー: ${data.message}`, "error");
+              }
+            })
+            .catch((error) => {
+              console.error("Upload error:", error);
+              setStatus(digit, "✗ アップロード失敗", "error");
+            });
+        };
+
+        img.onerror = function () {
+          setStatus(digit, "画像読み込みエラー", "error");
+        };
+
+        img.src = URL.createObjectURL(file);
       }
 
       // デフォルト画像にリセット
