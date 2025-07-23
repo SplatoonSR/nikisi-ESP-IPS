@@ -5,26 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-      <div class="info-box">
-        <h3>📋 画像アップロード仕様</h3>
-        <ul style="text-align: left;">
-          <li><strong>最大サイズ</strong>: 70×134ピクセル（デフォルト画像サイズ）</li>
-          <li><strong>対応形式</strong>: 
-            <ul>
-              <li>RGB565バイナリファイル（.rgb565）- 直接アップロード</li>
-              <li>一般画像（JPEG, PNG, BMP, GIF）- 自動変換</li>
-            </ul>
-          </li>
-          <li><strong>ファイルサイズ</strong>: 
-            <ul>
-              <li>RGB565: 18,760バイト（固定）</li>
-              <li>一般画像: 512KB以下推奨</li>
-            </ul>
-          </li>
-          <li><strong>自動処理</strong>: サイズが異なる場合は自動でリサイズされます</li>
-          <li><strong>注意</strong>: 縦長画像（高さ > 幅）が推奨です</li>
-        </ul>
-      </div>dy {
+      body {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         margin: 0;
         padding: 20px;
@@ -239,7 +220,7 @@
           </li>
           <li>
             <strong>自動処理</strong>:
-            サイズが異なる場合は自動でリサイズされます
+            縦横比を維持して70×134以内にリサイズされます
           </li>
           <li><strong>注意</strong>: 縦長画像（高さ > 幅）が推奨です</li>
         </ul>
@@ -470,18 +451,29 @@
         // 画像ファイルの場合は変換してアップロード
         const img = new Image();
         img.onload = function () {
-          // サイズチェック（70×134ピクセル制限）
-          if (img.width > 70 || img.height > 134) {
+          // 縦横比を保ちつつリサイズするかチェック
+          const maxWidth = 70;
+          const maxHeight = 134;
+          
+          let targetWidth = img.width;
+          let targetHeight = img.height;
+          
+          // 最大サイズを超える場合は縦横比を保って縮小
+          if (img.width > maxWidth || img.height > maxHeight) {
+            const widthRatio = maxWidth / img.width;
+            const heightRatio = maxHeight / img.height;
+            const ratio = Math.min(widthRatio, heightRatio);
+            
+            targetWidth = Math.floor(img.width * ratio);
+            targetHeight = Math.floor(img.height * ratio);
+            
             setStatus(
               digit,
-              `画像サイズが大きすぎます (最大70×134px, 現在${img.width}×${img.height}px)`,
-              "error"
+              `画像をリサイズします: ${img.width}×${img.height}px → ${targetWidth}×${targetHeight}px`,
+              "info"
             );
-            return;
-          }
-
-          // サイズが適切な場合、アップロード実行
-          performUpload(digit, file);
+          }          // 画像をリサイズしてアップロード実行
+          performUpload(digit, file, targetWidth, targetHeight);
         };
 
         img.onerror = function () {
@@ -547,7 +539,7 @@
       }
 
       // 実際のアップロード実行関数
-      function performUpload(digit, file) {
+      function performUpload(digit, file, targetWidth, targetHeight) {
         setStatus(digit, "画像変換中...", "uploading");
 
         const img = new Image();
@@ -558,8 +550,15 @@
           canvas.height = 134; // デフォルト画像高さに合わせる
 
           const ctx = canvas.getContext("2d");
-          // 画像をCanvasにフィット描画
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // 背景を黒で塗りつぶし
+          ctx.fillStyle = "#000000";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // 画像を中央配置で描画（縦横比を保持）
+          const offsetX = (canvas.width - targetWidth) / 2;
+          const offsetY = (canvas.height - targetHeight) / 2;
+          ctx.drawImage(img, offsetX, offsetY, targetWidth, targetHeight);
 
           // RGB565フォーマットに変換
           const rgb565Buffer = convertToRGB565(canvas);
@@ -568,6 +567,10 @@
           const blob = new Blob([rgb565Buffer], {
             type: "application/octet-stream",
           });
+
+          // ファイルサイズをデバッグ表示
+          console.log(`Generated RGB565 file size: ${blob.size} bytes (expected: ${70 * 134 * 2})`);
+          setStatus(digit, `変換完了: ${blob.size}バイト`, "info");
 
           // FormDataを作成してアップロード
           const formData = new FormData();

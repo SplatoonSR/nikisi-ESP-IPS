@@ -52,18 +52,17 @@ int bh1 = 99, bh0 = 99, bm1 = 99, bm0 = 99, bs1 = 99, bs0 = 99; // 前回の時�
 unsigned long ps_Time = 0;
 
 // ニキシー管画像サイズ
-int iw = 70;   // 幅
-int ih = 134;  // 高さ
+int iw = 70;   // 幅（デフォルト画像用）
+int ih = 134;  // 高さ（デフォルト画像用）
 
-// 高速化のためのバッファ（固定サイズで事前確保）
-uint16_t imageBuffer[170*320] = {0}; // 最大画面サイズで固定確保
+// メモリ効率化：必要最小限のバッファ使用
+uint16_t* imageBuffer = nullptr; // 動的に確保する描画バッファ
 int16_t scaledWidth, scaledHeight;
 int16_t displayX, displayY;
 
-// カスタム画像用バッファ（10個の数字分）
-uint16_t* customImages[10] = {nullptr}; // カスタム画像ポインタ配列
+// カスタム画像はSPIFFSから直接読み込み（メモリ節約）
 bool useCustomImages = false; // カスタム画像を使用するかのフラグ
-const int maxImageSize = 70 * 134; // 画像の最大サイズ（デフォルト画像サイズに合わせる）
+const int maxImageSize = 70 * 134; // 画像の最大サイズ（デフォルトサイズ）
 const int maxImageWidth = 70;  // 幅（デフォルトサイズ）
 const int maxImageHeight = 134; // 高さ（デフォルトサイズ）
 
@@ -93,8 +92,8 @@ void scaleImage(const uint16_t* src, int w1, int h1, uint16_t* dst, int w2, int 
     }
 }
 
-// カスタム画像をSPIFFSからロードする関数
-bool loadCustomImage(int digit) {
+// カスタム画像をSPIFFSから直接読み込む関数（メモリ効率版）
+bool loadCustomImageDirect(int digit, uint16_t* buffer, int bufferSize) {
   String filename = "/custom_" + String(digit) + ".rgb565";
   
   if (!SPIFFS.exists(filename)) {
@@ -111,34 +110,25 @@ bool loadCustomImage(int digit) {
   size_t fileSize = file.size();
   const size_t expectedSize = 70 * 134 * 2; // 18,760バイト
   
-  if (fileSize != expectedSize) {
-    Serial.printf("Invalid file size: %zu (expected: %zu)\n", fileSize, expectedSize);
+  // ファイルサイズの許容範囲をチェック（±100バイト）
+  if (fileSize < expectedSize - 100 || fileSize > expectedSize + 100) {
+    Serial.printf("Invalid file size: %zu (expected around: %zu)\n", fileSize, expectedSize);
     file.close();
     return false;
   }
   
-  // 既存のカスタム画像メモリを解放
-  if (customImages[digit] != nullptr) {
-    delete[] customImages[digit];
-    customImages[digit] = nullptr;
-  }
-  
-  // 新しいメモリを確保
-  customImages[digit] = new(std::nothrow) uint16_t[70 * 134];
-  if (customImages[digit] == nullptr) {
-    Serial.printf("Failed to allocate memory for digit %d\n", digit);
+  if (bufferSize < 70 * 134) {
+    Serial.printf("Buffer too small: %d (need: %d)\n", bufferSize, 70 * 134);
     file.close();
     return false;
   }
   
-  // ファイルから画像データを読み込み
-  size_t bytesRead = file.read((uint8_t*)customImages[digit], fileSize);
+  // ファイルから画像データを直接読み込み
+  size_t bytesRead = file.read((uint8_t*)buffer, fileSize);
   file.close();
   
   if (bytesRead != fileSize) {
     Serial.printf("Failed to read complete file: read %zu of %zu bytes\n", bytesRead, fileSize);
-    delete[] customImages[digit];
-    customImages[digit] = nullptr;
     return false;
   }
   
@@ -146,11 +136,10 @@ bool loadCustomImage(int digit) {
   return true;
 }
 
-// 全てのカスタム画像をロードする関数
-void loadAllCustomImages() {
-  for (int i = 0; i < 10; i++) {
-    loadCustomImage(i);
-  }
+// カスタム画像ファイルが存在するかチェック
+bool hasCustomImage(int digit) {
+  String filename = "/custom_" + String(digit) + ".rgb565";
+  return SPIFFS.exists(filename);
 }
 void drawNixieDigitOnDisplay(Arduino_GFX* display, int digit) {
   const uint16_t* nixieImages[] = {
@@ -162,18 +151,46 @@ void drawNixieDigitOnDisplay(Arduino_GFX* display, int digit) {
     int16_t screenW = display->width();
     int16_t screenH = display->height();
     
-    // カスタム画像を使用するかチェック
-    const uint16_t* imageToUse;
-    if (useCustomImages && customImages[digit] != nullptr) {
-      imageToUse = customImages[digit];
-      Serial.printf("Using custom image for digit %d\n", digit);
-    } else {
-      imageToUse = nixieImages[digit];
-      Serial.printf("Using default image for digit %d\n", digit);
+    // 描画バッファを動的に確保
+    int bufferSize = screenW * screenH;
+    if (imageBuffer == nullptr) {
+      imageBuffer = new(std::nothrow) uint16_t[bufferSize];
+      if (imageBuffer == nullptr) {
+        Serial.printf("Failed to allocate image buffer (%d bytes)\n", bufferSize * 2);
+        return;
+      }
+      Serial.printf("Allocated image buffer: %d bytes\n", bufferSize * 2);
     }
     
-    // 画像をディスプレイサイズにスケーリング
-    scaleImage(imageToUse, iw, ih, imageBuffer, screenW, screenH);
+    // カスタム画像を使用するかチェック
+    bool useCustom = useCustomImages && hasCustomImage(digit);
+    
+    if (useCustom) {
+      // カスタム画像をSPIFFSから直接読み込み（70×134サイズ）
+      uint16_t* tempBuffer = new(std::nothrow) uint16_t[70 * 134];
+      if (tempBuffer != nullptr) {
+        if (loadCustomImageDirect(digit, tempBuffer, 70 * 134)) {
+          // カスタム画像をディスプレイサイズにスケーリング
+          scaleImage(tempBuffer, maxImageWidth, maxImageHeight, imageBuffer, screenW, screenH);
+          Serial.printf("Using custom image for digit %d (70x134)\n", digit);
+        } else {
+          // カスタム画像読み込み失敗時はデフォルト画像を使用
+          scaleImage(nixieImages[digit], iw, ih, imageBuffer, screenW, screenH);
+          Serial.printf("Failed to load custom image, using default for digit %d\n", digit);
+        }
+        delete[] tempBuffer;
+      } else {
+        // メモリ確保失敗時はデフォルト画像を使用
+        scaleImage(nixieImages[digit], iw, ih, imageBuffer, screenW, screenH);
+        Serial.printf("Memory allocation failed, using default for digit %d\n", digit);
+      }
+    } else {
+      // デフォルト画像を使用
+      scaleImage(nixieImages[digit], iw, ih, imageBuffer, screenW, screenH);
+      Serial.printf("Using default image for digit %d (70x134)\n", digit);
+    }
+    
+    // 画像を描画
     display->draw16bitRGBBitmap(0, 0, imageBuffer, screenW, screenH);
   }
 }
@@ -314,23 +331,29 @@ void handleUpload() {
     
     // 期待されるファイルサイズをチェック
     const size_t expectedSize = 70 * 134 * 2; // 18,760バイト
-    if (upload.totalSize != expectedSize) {
-      Serial.printf("Invalid file size: %zu (expected: %zu)\n", upload.totalSize, expectedSize);
-      webServer.send(400, "application/json", 
-                    "{\"success\":false,\"message\":\"Invalid file size. Expected 70x134 RGB565 format (18760 bytes)\"}");
-      return;
+    
+    // RGB565ファイルの場合は正確なサイズを要求
+    if (upload.filename.endsWith(".rgb565")) {
+      if (upload.totalSize != expectedSize) {
+        Serial.printf("Invalid RGB565 file size: %zu (expected: %zu)\n", upload.totalSize, expectedSize);
+        webServer.send(400, "application/json", 
+                      "{\"success\":false,\"message\":\"Invalid file size. Expected 70x134 RGB565 format (18760 bytes)\"}");
+        return;
+      }
+    } else {
+      // 変換された画像の場合は少し範囲を広げる（±100バイト）
+      if (upload.totalSize < expectedSize - 100 || upload.totalSize > expectedSize + 100) {
+        Serial.printf("Invalid converted image size: %zu (expected around: %zu)\n", upload.totalSize, expectedSize);
+        webServer.send(400, "application/json", 
+                      "{\"success\":false,\"message\":\"Invalid converted image size. Expected around 70x134 RGB565 format\"}");
+        return;
+      }
     }
     
-    // メモリにロード
-    if (loadCustomImage(currentDigit)) {
-      Serial.printf("Successfully saved and loaded custom image for digit %d\n", currentDigit);
-      webServer.send(200, "application/json", 
-                    "{\"success\":true,\"message\":\"Image uploaded and loaded successfully\"}");
-    } else {
-      Serial.printf("Failed to load custom image for digit %d\n", currentDigit);
-      webServer.send(500, "application/json", 
-                    "{\"success\":false,\"message\":\"Failed to load image to memory\"}");
-    }
+    // メモリへのロードは不要（ファイル保存のみ）
+    Serial.printf("Successfully saved custom image for digit %d\n", currentDigit);
+    webServer.send(200, "application/json", 
+                  "{\"success\":true,\"message\":\"Image uploaded and saved successfully\"}");
     
     // リセット
     currentDigit = -1;
@@ -349,7 +372,7 @@ void handleStatus() {
   status += "\"customImages\":[";
   for (int i = 0; i < 10; i++) {
     if (i > 0) status += ",";
-    status += (customImages[i] != nullptr) ? "true" : "false";
+    status += hasCustomImage(i) ? "true" : "false";
   }
   status += "],";
   status += "\"freeHeap\":" + String(ESP.getFreeHeap());
@@ -359,11 +382,12 @@ void handleStatus() {
 
 void handleReset() {
   useCustomImages = false;
-  // カスタム画像メモリを解放
+  // カスタム画像ファイルを削除
   for (int i = 0; i < 10; i++) {
-    if (customImages[i] != nullptr) {
-      delete[] customImages[i];
-      customImages[i] = nullptr;
+    String filename = "/custom_" + String(i) + ".rgb565";
+    if (SPIFFS.exists(filename)) {
+      SPIFFS.remove(filename);
+      Serial.printf("Removed custom image file: %s\n", filename.c_str());
     }
   }
   // 全てのディスプレイを強制更新
@@ -373,9 +397,7 @@ void handleReset() {
 
 void handleUseCustom() {
   useCustomImages = true;
-  // カスタム画像をロード
-  loadAllCustomImages();
-  // 全てのディスプレイを強制更新
+  // 全てのディスプレイを強制更新（カスタム画像は必要時に読み込み）
   bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
   webServer.send(200, "application/json", "{\"success\":true}");
 }
@@ -440,8 +462,8 @@ void setup() {
     Serial.println("SPIFFS initialization failed!");
   } else {
     Serial.println("SPIFFS initialized successfully");
-    // 起動時にカスタム画像をロード
-    loadAllCustomImages();
+    // メモリ節約のため起動時のロードは行わない
+    Serial.printf("Free heap after SPIFFS init: %d bytes\n", ESP.getFreeHeap());
   }
   
   // Webサーバールート設定
