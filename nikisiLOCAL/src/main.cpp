@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <time.h>
 #include "config.h"  // WiFi設定をインクルード　*ssid　*password　*server　*timeZoneを外部で定義
+#include "qr_display.h"  // QRコード表示関連
 
 // ST7789 TFTディスプレイピン定義
 #define TFT_MOSI  6
@@ -485,6 +486,11 @@ void setup() {
   Serial.print("Access at: http://");
   Serial.println(WiFi.localIP());
   
+  // QRコードを5秒間表示
+  displayQRCode(displays, 6);
+  startTime = millis();
+  qrCodeDisplayed = true;
+  
   Serial.println("Nixie Tube Clock Ready!");
 }
 
@@ -498,21 +504,31 @@ void loop() {
     initializeWiFi();
   }
   
-  // 1秒ごとに時刻更新
-  if (millis() - ps_Time >= 1000) {
-    if (getLocalTime(&localTime)) {
-      hour = localTime.tm_hour;
-      minute = localTime.tm_min;
-      second = localTime.tm_sec;
+  // QRコード表示時間チェック
+  if (qrCodeDisplayed && (millis() - startTime >= QR_DISPLAY_DURATION)) {
+    endQRCodeDisplay(displays, 6);
+    // 前回の時刻をリセットして強制更新
+    bh1 = 99; bh0 = 99; bm1 = 99; bm0 = 99; bs1 = 99; bs0 = 99;
+  }
+  
+  // QRコード表示中は時計表示をスキップ
+  if (!qrCodeDisplayed) {
+    // 1秒ごとに時刻更新
+    if (millis() - ps_Time >= 1000) {
+      if (getLocalTime(&localTime)) {
+        hour = localTime.tm_hour;
+        minute = localTime.tm_min;
+        second = localTime.tm_sec;
+        
+        Serial.printf("%02d:%02d:%02d\n", hour, minute, second);
+        // ニキシー管時計表示更新
+        updateClock();
+      } else {
+        Serial.println("Failed to get time");
+      }
       
-      Serial.printf("%02d:%02d:%02d\n", hour, minute, second);
-            // ニキシー管時計表示更新
-      updateClock();
-    } else {
-      Serial.println("Failed to get time");
+      ps_Time = millis();
     }
-    
-    ps_Time = millis();
   }
   
   delay(50); // CPU負荷軽減
