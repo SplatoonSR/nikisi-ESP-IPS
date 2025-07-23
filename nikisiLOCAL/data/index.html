@@ -8,9 +8,19 @@
       <div class="info-box">
         <h3>📋 画像アップロード仕様</h3>
         <ul style="text-align: left;">
-          <li><strong>最大サイズ</strong>: 170×320ピクセル（ディスプレイサイズ）</li>
-          <li><strong>対応形式</strong>: JPEG, PNG, BMP, GIF</li>
-          <li><strong>ファイルサイズ</strong>: 512KB以下推奨</li>
+          <li><strong>最大サイズ</strong>: 70×134ピクセル（デフォルト画像サイズ）</li>
+          <li><strong>対応形式</strong>: 
+            <ul>
+              <li>RGB565バイナリファイル（.rgb565）- 直接アップロード</li>
+              <li>一般画像（JPEG, PNG, BMP, GIF）- 自動変換</li>
+            </ul>
+          </li>
+          <li><strong>ファイルサイズ</strong>: 
+            <ul>
+              <li>RGB565: 18,760バイト（固定）</li>
+              <li>一般画像: 512KB以下推奨</li>
+            </ul>
+          </li>
           <li><strong>自動処理</strong>: サイズが異なる場合は自動でリサイズされます</li>
           <li><strong>注意</strong>: 縦長画像（高さ > 幅）が推奨です</li>
         </ul>
@@ -211,10 +221,22 @@
         <h3>📋 画像アップロード仕様</h3>
         <ul style="text-align: left">
           <li>
-            <strong>最大サイズ</strong>: 170×320ピクセル（ディスプレイサイズ）
+            <strong>最大サイズ</strong>: 70×134ピクセル（デフォルト画像サイズ）
           </li>
-          <li><strong>対応形式</strong>: JPEG, PNG, BMP, GIF</li>
-          <li><strong>ファイルサイズ</strong>: 512KB以下推奨</li>
+          <li>
+            <strong>対応形式</strong>:
+            <ul>
+              <li>RGB565バイナリファイル（.rgb565）- 直接アップロード</li>
+              <li>一般画像（JPEG, PNG, BMP, GIF）- 自動変換</li>
+            </ul>
+          </li>
+          <li>
+            <strong>ファイルサイズ</strong>:
+            <ul>
+              <li>RGB565: 18,760バイト（固定）</li>
+              <li>一般画像: 512KB以下推奨</li>
+            </ul>
+          </li>
           <li>
             <strong>自動処理</strong>:
             サイズが異なる場合は自動でリサイズされます
@@ -427,14 +449,32 @@
           return;
         }
 
-        // 画像サイズチェック用Canvas
-        const img = new Image();
-        img.onload = function () {
-          // サイズチェック
-          if (img.width > 170 || img.height > 320) {
+        // RGB565ファイルの場合は直接アップロード
+        if (file.name.endsWith(".rgb565")) {
+          // RGB565ファイルサイズチェック（18760バイト = 70*134*2）
+          const expectedSize = 70 * 134 * 2;
+          if (file.size !== expectedSize) {
             setStatus(
               digit,
-              `画像サイズが大きすぎます (最大170×320px, 現在${img.width}×${img.height}px)`,
+              `RGB565ファイルサイズが不正です (期待値: ${expectedSize}バイト, 実際: ${file.size}バイト)`,
+              "error"
+            );
+            return;
+          }
+
+          // RGB565ファイルを直接アップロード
+          performDirectUpload(digit, file);
+          return;
+        }
+
+        // 画像ファイルの場合は変換してアップロード
+        const img = new Image();
+        img.onload = function () {
+          // サイズチェック（70×134ピクセル制限）
+          if (img.width > 70 || img.height > 134) {
+            setStatus(
+              digit,
+              `画像サイズが大きすぎます (最大70×134px, 現在${img.width}×${img.height}px)`,
               "error"
             );
             return;
@@ -450,6 +490,32 @@
 
         // 画像を読み込み
         img.src = URL.createObjectURL(file);
+      }
+
+      // RGB565ファイル直接アップロード関数
+      function performDirectUpload(digit, file) {
+        const formData = new FormData();
+        formData.append("digit", digit);
+        formData.append("file", file);
+
+        setStatus(digit, "アップロード中...", "uploading");
+
+        fetch("/upload", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              setStatus(digit, "✓ アップロード完了", "success");
+            } else {
+              setStatus(digit, `✗ エラー: ${data.message}`, "error");
+            }
+          })
+          .catch((error) => {
+            console.error("Upload error:", error);
+            setStatus(digit, "✗ アップロード失敗", "error");
+          });
       }
 
       // RGB565フォーマットに変換する関数
@@ -488,8 +554,8 @@
         img.onload = function () {
           // Canvasを作成して画像を描画
           const canvas = document.createElement("canvas");
-          canvas.width = 170; // ディスプレイ幅に合わせる
-          canvas.height = 320; // ディスプレイ高さに合わせる
+          canvas.width = 70; // デフォルト画像幅に合わせる
+          canvas.height = 134; // デフォルト画像高さに合わせる
 
           const ctx = canvas.getContext("2d");
           // 画像をCanvasにフィット描画

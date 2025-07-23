@@ -63,9 +63,9 @@ int16_t displayX, displayY;
 // カスタム画像用バッファ（10個の数字分）
 uint16_t* customImages[10] = {nullptr}; // カスタム画像ポインタ配列
 bool useCustomImages = false; // カスタム画像を使用するかのフラグ
-const int maxImageSize = 170 * 320; // 画像の最大サイズ（ディスプレイサイズ）
-const int maxImageWidth = 170;  // 最大幅
-const int maxImageHeight = 320; // 最大高さ
+const int maxImageSize = 70 * 134; // 画像の最大サイズ（デフォルト画像サイズに合わせる）
+const int maxImageWidth = 70;  // 幅（デフォルトサイズ）
+const int maxImageHeight = 134; // 高さ（デフォルトサイズ）
 
 // 高速スケーリング関数（Arduino_GFX最適化版）
 void scaleImageToBuffer(const uint16_t* bitmap, int16_t w, int16_t h, int16_t scale) {
@@ -109,23 +109,40 @@ bool loadCustomImage(int digit) {
   }
   
   size_t fileSize = file.size();
-  if (fileSize != maxImageSize * 2) { // RGB565は1ピクセル2バイト
-    Serial.printf("Invalid file size: %zu (expected: %d)\n", fileSize, maxImageSize * 2);
+  const size_t expectedSize = 70 * 134 * 2; // 18,760バイト
+  
+  if (fileSize != expectedSize) {
+    Serial.printf("Invalid file size: %zu (expected: %zu)\n", fileSize, expectedSize);
     file.close();
     return false;
   }
   
-  // メモリを確保
+  // 既存のカスタム画像メモリを解放
   if (customImages[digit] != nullptr) {
     delete[] customImages[digit];
+    customImages[digit] = nullptr;
   }
-  customImages[digit] = new uint16_t[maxImageSize];
+  
+  // 新しいメモリを確保
+  customImages[digit] = new(std::nothrow) uint16_t[70 * 134];
+  if (customImages[digit] == nullptr) {
+    Serial.printf("Failed to allocate memory for digit %d\n", digit);
+    file.close();
+    return false;
+  }
   
   // ファイルから画像データを読み込み
-  file.read((uint8_t*)customImages[digit], fileSize);
+  size_t bytesRead = file.read((uint8_t*)customImages[digit], fileSize);
   file.close();
   
-  Serial.printf("Loaded custom image for digit %d\n", digit);
+  if (bytesRead != fileSize) {
+    Serial.printf("Failed to read complete file: read %zu of %zu bytes\n", bytesRead, fileSize);
+    delete[] customImages[digit];
+    customImages[digit] = nullptr;
+    return false;
+  }
+  
+  Serial.printf("Successfully loaded custom image for digit %d (%zu bytes)\n", digit, fileSize);
   return true;
 }
 
@@ -244,61 +261,79 @@ void handleRoot() {
 }
 
 void handleUpload() {
-  // マルチパート/form-dataを処理
-  if (webServer.hasArg("digit")) {
-    int digit = webServer.arg("digit").toInt();
-    
-    if (digit >= 0 && digit <= 9) {
-      // HTTPUploadファイルを取得
-      HTTPUpload& upload = webServer.upload();
+  HTTPUpload& upload = webServer.upload();
+  static File uploadFile;
+  static int currentDigit = -1;
+  
+  if (upload.status == UPLOAD_FILE_START) {
+    // digitパラメータを取得
+    if (webServer.hasArg("digit")) {
+      currentDigit = webServer.arg("digit").toInt();
       
-      if (upload.status == UPLOAD_FILE_START) {
-        Serial.printf("Upload Start: %s\n", upload.filename.c_str());
-        Serial.printf("Upload for digit: %d\n", digit);
+      if (currentDigit >= 0 && currentDigit <= 9) {
+        Serial.printf("Upload Start: %s for digit %d\n", upload.filename.c_str(), currentDigit);
         
-      } else if (upload.status == UPLOAD_FILE_WRITE) {
-        // ファイルデータを受信中
-        Serial.printf("Upload Write: %zu bytes\n", upload.currentSize);
+        String filename = "/custom_" + String(currentDigit) + ".rgb565";
+        uploadFile = SPIFFS.open(filename, "w");
         
-      } else if (upload.status == UPLOAD_FILE_END) {
-        Serial.printf("Upload End: %zu bytes total\n", upload.totalSize);
-        
-        // RGB565フォーマットのサイズチェック（170*320*2バイト = 108800バイト）
-        const size_t expectedSize = 170 * 320 * 2;
-        if (upload.totalSize != expectedSize) {
-          Serial.printf("Invalid file size: %zu (expected: %zu)\n", upload.totalSize, expectedSize);
-          webServer.send(400, "application/json", "{\"success\":false,\"message\":\"Invalid file size for RGB565 format\"}");
-          return;
+        if (!uploadFile) {
+          Serial.println("Failed to open file for writing");
+          return; // エラーはUPLOAD_FILE_ENDで処理
         }
-        
-        // 画像データをSPIFFSに保存（RGB565フォーマットとして）
-        String filename = "/custom_" + String(digit) + ".rgb565";
-        File file = SPIFFS.open(filename, "w");
-        if (file) {
-          // 注意: この簡易実装では、アップロードされたファイルが
-          // 既にRGB565フォーマットであることを前提としています
-          // 実際の運用では、JPEG/PNG→RGB565変換が必要です
-          file.write(upload.buf, upload.currentSize);
-          file.close();
-          
-          // メモリにもロード
-          if (loadCustomImage(digit)) {
-            Serial.printf("Saved and loaded custom image for digit %d\n", digit);
-            webServer.send(200, "application/json", "{\"success\":true,\"message\":\"Image uploaded successfully\"}");
-          } else {
-            Serial.printf("Saved but failed to load custom image for digit %d\n", digit);
-            webServer.send(500, "application/json", "{\"success\":false,\"message\":\"Failed to load image to memory\"}");
-          }
-        } else {
-          Serial.println("Failed to save file");
-          webServer.send(500, "application/json", "{\"success\":false,\"message\":\"Failed to save file\"}");
-        }
+      } else {
+        Serial.printf("Invalid digit: %d\n", currentDigit);
+        currentDigit = -1;
+        return;
       }
     } else {
-      webServer.send(400, "application/json", "{\"success\":false,\"message\":\"Invalid digit\"}");
+      Serial.println("Missing digit parameter");
+      currentDigit = -1;
+      return;
     }
-  } else {
-    webServer.send(400, "application/json", "{\"success\":false,\"message\":\"Missing digit parameter\"}");
+    
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (uploadFile && currentDigit >= 0) {
+      size_t written = uploadFile.write(upload.buf, upload.currentSize);
+      if (written != upload.currentSize) {
+        Serial.printf("Write error: wrote %zu of %zu bytes\n", written, upload.currentSize);
+      }
+    }
+    
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (uploadFile) {
+      uploadFile.close();
+    }
+    
+    Serial.printf("Upload End: %zu bytes total\n", upload.totalSize);
+    
+    if (currentDigit < 0 || currentDigit > 9) {
+      webServer.send(400, "application/json", 
+                    "{\"success\":false,\"message\":\"Invalid digit parameter\"}");
+      return;
+    }
+    
+    // 期待されるファイルサイズをチェック
+    const size_t expectedSize = 70 * 134 * 2; // 18,760バイト
+    if (upload.totalSize != expectedSize) {
+      Serial.printf("Invalid file size: %zu (expected: %zu)\n", upload.totalSize, expectedSize);
+      webServer.send(400, "application/json", 
+                    "{\"success\":false,\"message\":\"Invalid file size. Expected 70x134 RGB565 format (18760 bytes)\"}");
+      return;
+    }
+    
+    // メモリにロード
+    if (loadCustomImage(currentDigit)) {
+      Serial.printf("Successfully saved and loaded custom image for digit %d\n", currentDigit);
+      webServer.send(200, "application/json", 
+                    "{\"success\":true,\"message\":\"Image uploaded and loaded successfully\"}");
+    } else {
+      Serial.printf("Failed to load custom image for digit %d\n", currentDigit);
+      webServer.send(500, "application/json", 
+                    "{\"success\":false,\"message\":\"Failed to load image to memory\"}");
+    }
+    
+    // リセット
+    currentDigit = -1;
   }
 }
 
@@ -411,7 +446,11 @@ void setup() {
   
   // Webサーバールート設定
   webServer.on("/", handleRoot);
-  webServer.on("/upload", HTTP_POST, handleUpload);
+  webServer.on("/upload", HTTP_POST, 
+    []() { 
+      // POSTレスポンスはhandleUpload内で処理される
+    }, 
+    handleUpload); // アップロードハンドラーを正しく設定
   webServer.on("/api/time", handleTime);
   webServer.on("/api/status", handleStatus);
   webServer.on("/api/reset", HTTP_POST, handleReset);
