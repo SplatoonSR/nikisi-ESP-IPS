@@ -1,0 +1,14 @@
+// WiFi設定ファイル
+// このファイルをconfig.hにコピーして、実際のWiFi情報を記入してください
+
+// WiFi接続設定
+const char* ssid = "YOUR_WIFI_SSID";         // あなたのWiFi SSID
+const char* password = "YOUR_WIFI_PASSWORD"; // あなたのWiFiパスワード
+
+// NTP時刻同期設定
+const char* ntpServer = "ntp.nict.jp";       // NTPサーバー（日本の場合）
+const int timeZone = 9;                      // タイムゾーン（JST = UTC+9）
+
+// 使用例:
+// const char* ssid = "MyHomeWiFi";
+// const char* password = "MySecurePassword123";
