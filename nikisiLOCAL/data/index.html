@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Nixie Tube Clock Manager</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        color: #fff;
+        min-height: 100vh;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 30px;
+        border-radius: 15px;
+        backdrop-filter: blur(10px);
+      }
+      .header h1 {
+        font-size: 2.5em;
+        margin: 0 0 20px 0;
+        background: linear-gradient(45deg, #4caf50, #81c784);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .upload-section {
+        background: rgba(255, 255, 255, 0.08);
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+      .digit-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+      }
+      .digit-item {
+        background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      }
+      .digit-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(76, 175, 80, 0.2);
+      }
+      .digit-item h3 {
+        margin: 0 0 15px 0;
+        color: #4caf50;
+        font-size: 1.2em;
+      }
+      .file-input-wrapper {
+        position: relative;
+        margin: 10px 0;
+      }
+      .file-input-wrapper input[type="file"] {
+        position: absolute;
+        left: -9999px;
+      }
+      .file-input-label {
+        display: block;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        padding: 8px 15px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px dashed rgba(255, 255, 255, 0.3);
+      }
+      .file-input-label:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: #4caf50;
+      }
+      .upload-button {
+        background: linear-gradient(45deg, #4caf50, #45a049);
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        margin: 5px;
+        font-size: 14px;
+      }
+      .upload-button:hover {
+        background: linear-gradient(45deg, #45a049, #4caf50);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+      }
+      .upload-button:active {
+        transform: translateY(0);
+      }
+      .status {
+        margin-top: 15px;
+        font-weight: bold;
+        min-height: 20px;
+        font-size: 14px;
+      }
+      .status.success {
+        color: #4caf50;
+      }
+      .status.error {
+        color: #ff6b6b;
+      }
+      .status.uploading {
+        color: #2196f3;
+      }
+      .current-time {
+        font-size: 3em;
+        text-align: center;
+        margin: 20px 0;
+        color: #4caf50;
+        font-weight: bold;
+        text-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+        font-family: "Courier New", monospace;
+      }
+      .controls {
+        margin-top: 40px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 12px;
+      }
+      .control-button {
+        background: linear-gradient(45deg, #2196f3, #1976d2);
+        color: white;
+        padding: 15px 30px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: bold;
+        margin: 10px;
+        font-size: 16px;
+        transition: all 0.3s ease;
+      }
+      .control-button:hover {
+        background: linear-gradient(45deg, #1976d2, #2196f3);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+      }
+      .control-button.reset {
+        background: linear-gradient(45deg, #ff9800, #f57c00);
+      }
+      .control-button.reset:hover {
+        background: linear-gradient(45deg, #f57c00, #ff9800);
+        box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
+      }
+      .info-box {
+        background: rgba(33, 150, 243, 0.1);
+        border: 1px solid rgba(33, 150, 243, 0.3);
+        padding: 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+      }
+      .info-box h3 {
+        color: #2196f3;
+        margin-top: 0;
+      }
+      @media (max-width: 768px) {
+        .container {
+          padding: 10px;
+        }
+        .current-time {
+          font-size: 2em;
+        }
+        .digit-grid {
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 15px;
+        }
+        .header h1 {
+          font-size: 2em;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🕐 Nixie Tube Clock Manager</h1>
+        <div class="current-time" id="currentTime">--:--:--</div>
+        <p>リアルタイムでニキシー管時計をカスタマイズ</p>
+      </div>
+
+      <div class="info-box">
+        <h3>📋 使用方法</h3>
+        <ul style="text-align: left">
+          <li>各数字（0-9）に対応するカスタム画像をアップロード</li>
+          <li>推奨サイズ: 70×134ピクセル</li>
+          <li>対応形式: JPEG, PNG, BMP, GIF</li>
+          <li>アップロード後、「カスタム画像を使用」ボタンで有効化</li>
+        </ul>
+      </div>
+
+      <div class="upload-section">
+        <h2>📷 ニキシー管カスタム画像アップロード</h2>
+
+        <div class="digit-grid">
+          <div class="digit-item">
+            <h3>数字 0</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file0" accept="image/*" />
+              <label for="file0" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(0)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status0"></div>
+          </div>
+          <div class="digit-item">
+            <h3>数字 1</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file1" accept="image/*" />
+              <label for="file1" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(1)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status1"></div>
+          </div>
+          <div class="digit-item">
+            <h3>数字 2</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file2" accept="image/*" />
+              <label for="file2" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(2)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status2"></div>
+          </div>
+          <div class="digit-item">
+            <h3>数字 3</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file3" accept="image/*" />
+              <label for="file3" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(3)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status3"></div>
+          </div>
+          <div class="digit-item">
+            <h3>数字 4</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file4" accept="image/*" />
+              <label for="file4" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(4)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status4"></div>
+          </div>
+          <div class="digit-item">
+            <h3>数字 5</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file5" accept="image/*" />
+              <label for="file5" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(5)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status5"></div>
+          </div>
+          <div class="digit-item">
+            <h3>数字 6</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file6" accept="image/*" />
+              <label for="file6" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(6)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status6"></div>
+          </div>
+          <div class="digit-item">
+            <h3>数字 7</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file7" accept="image/*" />
+              <label for="file7" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(7)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status7"></div>
+          </div>
+          <div class="digit-item">
+            <h3>数字 8</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file8" accept="image/*" />
+              <label for="file8" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(8)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status8"></div>
+          </div>
+          <div class="digit-item">
+            <h3>数字 9</h3>
+            <div class="file-input-wrapper">
+              <input type="file" id="file9" accept="image/*" />
+              <label for="file9" class="file-input-label"
+                >📁 ファイルを選択</label
+              >
+            </div>
+            <button class="upload-button" onclick="uploadImage(9)">
+              ⬆️ アップロード
+            </button>
+            <div class="status" id="status9"></div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="control-button reset" onclick="resetToDefault()">
+            🔄 デフォルト画像に戻す
+          </button>
+          <button class="control-button" onclick="useCustomImages()">
+            ✨ カスタム画像を使用
+          </button>
+          <button class="control-button" onclick="refreshDisplay()">
+            🔃 表示を更新
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ファイル選択時のラベル更新
+      document.querySelectorAll('input[type="file"]').forEach((input) => {
+        input.addEventListener("change", function () {
+          const label = this.nextElementSibling;
+          if (this.files.length > 0) {
+            label.textContent = `📄 ${this.files[0].name}`;
+            label.style.borderColor = "#4CAF50";
+          } else {
+            label.textContent = "📁 ファイルを選択";
+            label.style.borderColor = "rgba(255, 255, 255, 0.3)";
+          }
+        });
+      });
+
+      // 現在時刻の表示更新
+      function updateTime() {
+        fetch("/api/time")
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById("currentTime").textContent = data.time;
+          })
+          .catch((error) => {
+            console.error("Time update error:", error);
+            document.getElementById("currentTime").textContent = "Error";
+          });
+      }
+      setInterval(updateTime, 1000);
+      updateTime();
+
+      // ステータス表示関数
+      function setStatus(digit, message, type = "info") {
+        const statusDiv = document.getElementById(`status${digit}`);
+        statusDiv.textContent = message;
+        statusDiv.className = `status ${type}`;
+      }
+
+      // 画像アップロード関数
+      function uploadImage(digit) {
+        const fileInput = document.getElementById(`file${digit}`);
+
+        if (!fileInput.files[0]) {
+          setStatus(digit, "ファイルを選択してください", "error");
+          return;
+        }
+
+        const file = fileInput.files[0];
+
+        // ファイルサイズチェック (1MB制限)
+        if (file.size > 1024 * 1024) {
+          setStatus(digit, "ファイルサイズが大きすぎます (1MB以下)", "error");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("digit", digit);
+
+        setStatus(digit, "アップロード中...", "uploading");
+
+        fetch("/upload", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              setStatus(digit, "✓ アップロード完了", "success");
+            } else {
+              setStatus(digit, `✗ エラー: ${data.message}`, "error");
+            }
+          })
+          .catch((error) => {
+            console.error("Upload error:", error);
+            setStatus(digit, "✗ アップロード失敗", "error");
+          });
+      }
+
+      // デフォルト画像にリセット
+      function resetToDefault() {
+        if (confirm("デフォルト画像に戻しますか？")) {
+          fetch("/api/reset", { method: "POST" })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                alert("✓ デフォルト画像に戻しました");
+              }
+            })
+            .catch((error) => {
+              console.error("Reset error:", error);
+              alert("✗ リセットに失敗しました");
+            });
+        }
+      }
+
+      // カスタム画像を使用
+      function useCustomImages() {
+        fetch("/api/use-custom", { method: "POST" })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              alert("✓ カスタム画像を使用中");
+            }
+          })
+          .catch((error) => {
+            console.error("Use custom error:", error);
+            alert("✗ 切り替えに失敗しました");
+          });
+      }
+
+      // 表示を強制更新
+      function refreshDisplay() {
+        fetch("/api/refresh", { method: "POST" })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              alert("✓ 表示を更新しました");
+            }
+          })
+          .catch((error) => {
+            console.error("Refresh error:", error);
+            alert("✗ 更新に失敗しました");
+          });
+      }
+    </script>
+  </body>
+</html>
