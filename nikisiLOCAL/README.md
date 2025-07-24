@@ -2,7 +2,8 @@
 
 ESP32-C3 と 6 個の ST7789 TFT ディスプレイを使用した WebUI 対応ニキシー管風デジタル時計
 
-![License](https://img.shields.io/badge/license-MIT-b## 💻 ソフトウェア設定
+![License](https://img.shields.io/badge/license-MIT-b)
+## 💻 ソフトウェア設定
 
 ### 🛠️ 開発環境
 
