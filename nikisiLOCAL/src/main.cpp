@@ -69,8 +69,10 @@ int16_t displayX, displayY;
 
 // カスタム画像はSPIFFSから直接読み込み（メモリ節約）
 bool useCustomImages = false; // カスタム画像を使用するかのフラグ
+int currentImageSet = 0; // 現在使用中の画像セット番号（0-2）
+const int MAX_IMAGE_SETS = 3; // 最大画像セット数（軽量化）
 
-// SPIFFS容量管理機能
+// SPIFFS容量管理機能（3セット対応）
 void checkSPIFFSCapacity() {
   size_t totalBytes = SPIFFS.totalBytes();
   size_t usedBytes = SPIFFS.usedBytes();
@@ -83,45 +85,86 @@ void checkSPIFFSCapacity() {
   
   // 1つの画像当たり約18,700バイト（70×134×2バイト）必要
   int imageSize = 70 * 134 * 2;
-  int maxImages = freeBytes / imageSize;
+  int imagesPerSet = 10; // 0-9の10枚
+  int bytesPerSet = imageSize * imagesPerSet; // 187,600バイト/セット
+  int maxSets = freeBytes / bytesPerSet;
+  
   Serial.printf("Image size: %d bytes each\n", imageSize);
-  Serial.printf("Can store approximately %d more custom images\n", maxImages);
-  Serial.println("===========================");
-}
-
-// 保存済みカスタム画像の一覧表示
-void listSavedImages() {
-  Serial.println("=== Saved Custom Images ===");
-  int savedCount = 0;
-  for (int i = 0; i < 10; i++) {
-    String filename = "/custom_" + String(i) + ".rgb565";
-    if (SPIFFS.exists(filename)) {
-      File file = SPIFFS.open(filename, "r");
-      if (file) {
-        Serial.printf("Digit %d: %s (%zu bytes)\n", i, filename.c_str(), file.size());
-        file.close();
-        savedCount++;
+  Serial.printf("Images per set: %d\n", imagesPerSet);
+  Serial.printf("Bytes per set: %d bytes (%.2f KB)\n", bytesPerSet, bytesPerSet / 1024.0);
+  Serial.printf("Can store approximately %d more complete sets (max: %d)\n", maxSets, MAX_IMAGE_SETS);
+  
+  // 既存セットをカウント
+  int existingSets = 0;
+  for (int set = 0; set < MAX_IMAGE_SETS; set++) {
+    int imagesInSet = 0;
+    for (int digit = 0; digit < 10; digit++) {
+      String filename = "/set" + String(set) + "_" + String(digit) + ".rgb565";
+      if (SPIFFS.exists(filename)) {
+        imagesInSet++;
       }
     }
+    if (imagesInSet > 0) {
+      existingSets++;
+      Serial.printf("Set %d: %d images\n", set, imagesInSet);
+    }
   }
-  Serial.printf("Total saved images: %d/10\n", savedCount);
+  Serial.printf("Current active set: %d\n", currentImageSet);
+  Serial.printf("Existing sets: %d/%d\n", existingSets, MAX_IMAGE_SETS);
   Serial.println("===========================");
 }
 
-// 設定を保存する関数
+// 保存済みカスタム画像の一覧表示（3セット対応）
+void listSavedImages() {
+  Serial.println("=== Saved Custom Image Sets ===");
+  int totalSavedImages = 0;
+  
+  for (int set = 0; set < MAX_IMAGE_SETS; set++) {
+    int imagesInSet = 0;
+    Serial.printf("Set %d: ", set);
+    
+    for (int digit = 0; digit < 10; digit++) {
+      String filename = "/set" + String(set) + "_" + String(digit) + ".rgb565";
+      if (SPIFFS.exists(filename)) {
+        File file = SPIFFS.open(filename, "r");
+        if (file) {
+          Serial.printf("%d(%zu) ", digit, file.size());
+          file.close();
+          imagesInSet++;
+          totalSavedImages++;
+        }
+      }
+    }
+    
+    if (imagesInSet > 0) {
+      Serial.printf("-> %d/10 images\n", imagesInSet);
+    } else {
+      Serial.println("-> empty");
+    }
+  }
+  
+  Serial.printf("Total saved images: %d\n", totalSavedImages);
+  Serial.printf("Current active set: %d\n", currentImageSet);
+  Serial.println("===============================");
+}
+
+// 設定を保存する関数（セット対応）
 void saveSettings() {
   File settingsFile = SPIFFS.open("/settings.json", "w");
   if (settingsFile) {
-    String settings = "{\"useCustomImages\":" + String(useCustomImages ? "true" : "false") + "}";
+    String settings = "{";
+    settings += "\"useCustomImages\":" + String(useCustomImages ? "true" : "false") + ",";
+    settings += "\"currentImageSet\":" + String(currentImageSet);
+    settings += "}";
     settingsFile.print(settings);
     settingsFile.close();
-    Serial.println("Settings saved to SPIFFS");
+    Serial.println("Settings saved to SPIFFS (set: " + String(currentImageSet) + ")");
   } else {
     Serial.println("Failed to save settings");
   }
 }
 
-// 設定を読み込む関数
+// 設定を読み込む関数（セット対応）
 void loadSettings() {
   if (SPIFFS.exists("/settings.json")) {
     File settingsFile = SPIFFS.open("/settings.json", "r");
@@ -129,7 +172,7 @@ void loadSettings() {
       String settings = settingsFile.readString();
       settingsFile.close();
       
-      // JSON解析（簡易版）
+      // useCustomImagesの読み込み
       if (settings.indexOf("\"useCustomImages\":true") >= 0) {
         useCustomImages = true;
         Serial.println("Custom images enabled from saved settings");
@@ -137,9 +180,26 @@ void loadSettings() {
         useCustomImages = false;
         Serial.println("Custom images disabled from saved settings");
       }
+      
+      // currentImageSetの読み込み
+      int setIndex = settings.indexOf("\"currentImageSet\":");
+      if (setIndex != -1) {
+        int valueStart = settings.indexOf(":", setIndex) + 1;
+        int valueEnd = settings.indexOf(",", valueStart);
+        if (valueEnd == -1) valueEnd = settings.indexOf("}", valueStart);
+        String value = settings.substring(valueStart, valueEnd);
+        value.trim();
+        int newSet = value.toInt();
+        if (newSet >= 0 && newSet < MAX_IMAGE_SETS) {
+          currentImageSet = newSet;
+          Serial.println("Current image set loaded: " + String(currentImageSet));
+        }
+      }
     }
   } else {
     Serial.println("No saved settings found, using defaults");
+    useCustomImages = false;
+    currentImageSet = 0;
   }
 }
 const int maxImageSize = 70 * 134; // 画像の最大サイズ（デフォルトサイズ）
@@ -172,9 +232,9 @@ void scaleImage(const uint16_t* src, int w1, int h1, uint16_t* dst, int w2, int 
     }
 }
 
-// カスタム画像をSPIFFSから直接読み込む関数（メモリ効率版）
+// カスタム画像をSPIFFSから直接読み込む関数（メモリ効率版・セット対応）
 bool loadCustomImageDirect(int digit, uint16_t* buffer, int bufferSize) {
-  String filename = "/custom_" + String(digit) + ".rgb565";
+  String filename = "/set" + String(currentImageSet) + "_" + String(digit) + ".rgb565";
   
   if (!SPIFFS.exists(filename)) {
     Serial.printf("Custom image file not found: %s\n", filename.c_str());
@@ -218,7 +278,7 @@ bool loadCustomImageDirect(int digit, uint16_t* buffer, int bufferSize) {
 
 // カスタム画像ファイルが存在するかチェック
 bool hasCustomImage(int digit) {
-  String filename = "/custom_" + String(digit) + ".rgb565";
+  String filename = "/set" + String(currentImageSet) + "_" + String(digit) + ".rgb565";
   return SPIFFS.exists(filename);
 }
 void drawNixieDigitOnDisplay(Arduino_GFX* display, int digit) {
@@ -346,6 +406,88 @@ void handleRefresh() {
   webServer.send(200, "application/json", "{\"success\":true}");
 }
 
+// 新しいAPI: セット切り替え
+void handleSetSwitch() {
+  if (webServer.hasArg("set")) {
+    int newSet = webServer.arg("set").toInt();
+    if (newSet >= 0 && newSet < MAX_IMAGE_SETS) {
+      currentImageSet = newSet;
+      saveSettings();
+      
+      // 全てのディスプレイを強制更新
+      bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
+      
+      webServer.send(200, "application/json", "{\"success\":true,\"currentSet\":" + String(currentImageSet) + "}");
+      Serial.println("Switched to image set: " + String(currentImageSet));
+    } else {
+      webServer.send(400, "application/json", "{\"success\":false,\"error\":\"Invalid set number\"}");
+    }
+  } else {
+    webServer.send(400, "application/json", "{\"success\":false,\"error\":\"Missing set parameter\"}");
+  }
+}
+
+// 新しいAPI: 利用可能なセット一覧を取得
+void handleGetSets() {
+  String response = "{\"currentSet\":" + String(currentImageSet) + ",\"sets\":[";
+  
+  for (int set = 0; set < MAX_IMAGE_SETS; set++) {
+    if (set > 0) response += ",";
+    
+    // セット内の画像数をカウント
+    int imageCount = 0;
+    for (int digit = 0; digit < 10; digit++) {
+      String filename = "/set" + String(set) + "_" + String(digit) + ".rgb565";
+      if (SPIFFS.exists(filename)) {
+        imageCount++;
+      }
+    }
+    
+    response += "{\"id\":" + String(set) + ",\"imageCount\":" + String(imageCount) + "}";
+  }
+  
+  response += "]}";
+  webServer.send(200, "application/json", response);
+}
+
+// 新しいAPI: 指定セットの削除
+void handleDeleteSet() {
+  if (webServer.hasArg("set")) {
+    int targetSet = webServer.arg("set").toInt();
+    if (targetSet >= 0 && targetSet < MAX_IMAGE_SETS) {
+      int deletedCount = 0;
+      
+      // 指定セットの全画像を削除
+      for (int digit = 0; digit < 10; digit++) {
+        String filename = "/set" + String(targetSet) + "_" + String(digit) + ".rgb565";
+        if (SPIFFS.exists(filename)) {
+          if (SPIFFS.remove(filename)) {
+            deletedCount++;
+            Serial.printf("Deleted: %s\n", filename.c_str());
+          }
+        }
+      }
+      
+      // 削除したセットが現在のセットの場合、セット0に切り替え
+      if (targetSet == currentImageSet) {
+        currentImageSet = 0;
+        useCustomImages = false; // デフォルト画像に戻す
+        saveSettings();
+        // 全てのディスプレイを強制更新
+        bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
+      }
+      
+      String message = "Deleted " + String(deletedCount) + " images from set " + String(targetSet);
+      webServer.send(200, "application/json", "{\"success\":true,\"message\":\"" + message + "\"}");
+      Serial.println("Set " + String(targetSet) + " deleted: " + String(deletedCount) + " files");
+    } else {
+      webServer.send(400, "application/json", "{\"success\":false,\"error\":\"Invalid set number\"}");
+    }
+  } else {
+    webServer.send(400, "application/json", "{\"success\":false,\"error\":\"Missing set parameter\"}");
+  }
+}
+
 // Webサーバーハンドラー関数
 void handleRoot() {
   File file = SPIFFS.open("/index.html", "r");
@@ -370,7 +512,7 @@ void handleUpload() {
       if (currentDigit >= 0 && currentDigit <= 9) {
         Serial.printf("Upload Start: %s for digit %d\n", upload.filename.c_str(), currentDigit);
         
-        String filename = "/custom_" + String(currentDigit) + ".rgb565";
+        String filename = "/set" + String(currentImageSet) + "_" + String(currentDigit) + ".rgb565";
         uploadFile = SPIFFS.open(filename, "w");
         
         if (!uploadFile) {
@@ -451,9 +593,10 @@ void handleTime() {
 }
 
 void handleStatus() {
-  // カスタム画像の状態を確認
+  // カスタム画像の状態を確認（3セット対応）
   String status = "{";
   status += "\"useCustomImages\":" + String(useCustomImages ? "true" : "false") + ",";
+  status += "\"currentImageSet\":" + String(currentImageSet) + ",";
   status += "\"customImages\":[";
   for (int i = 0; i < 10; i++) {
     if (i > 0) status += ",";
@@ -462,19 +605,34 @@ void handleStatus() {
   status += "],";
   status += "\"freeHeap\":" + String(ESP.getFreeHeap()) + ",";
   
-  // SPIFFS容量情報を追加
+  // SPIFFS容量情報を追加（3セット対応）
   size_t totalBytes = SPIFFS.totalBytes();
   size_t usedBytes = SPIFFS.usedBytes();
   size_t freeBytes = totalBytes - usedBytes;
   int imageSize = 70 * 134 * 2; // 1画像のサイズ
-  int maxImages = freeBytes / imageSize;
+  int maxImagesPerSet = 10; // セットあたりの最大画像数
+  int maxSets = MAX_IMAGE_SETS; // 最大セット数
+  int currentUsedSets = 0;
+  
+  // 使用中のセット数をカウント
+  for (int set = 0; set < MAX_IMAGE_SETS; set++) {
+    for (int digit = 0; digit < 10; digit++) {
+      String filename = "/set" + String(set) + "_" + String(digit) + ".rgb565";
+      if (SPIFFS.exists(filename)) {
+        currentUsedSets = set + 1;
+        break;
+      }
+    }
+  }
   
   status += "\"spiffs\":{";
   status += "\"total\":" + String(totalBytes) + ",";
   status += "\"used\":" + String(usedBytes) + ",";
   status += "\"free\":" + String(freeBytes) + ",";
   status += "\"imageSize\":" + String(imageSize) + ",";
-  status += "\"maxImages\":" + String(maxImages);
+  status += "\"maxSets\":" + String(maxSets) + ",";
+  status += "\"usedSets\":" + String(currentUsedSets) + ",";
+  status += "\"imagesPerSet\":" + String(maxImagesPerSet);
   status += "}";
   
   status += "}";
@@ -494,19 +652,22 @@ void handleReset() {
   Serial.println("Switched to default images, custom images preserved");
 }
 
-// 新しいAPI: カスタム画像を完全削除
+// 新しいAPI: カスタム画像を完全削除（3セット対応）
 void handleDeleteAll() {
   useCustomImages = false;
+  currentImageSet = 0;
   saveSettings(); // 設定を保存
   
-  // 全てのカスタム画像ファイルを削除
+  // 全てのセットのカスタム画像ファイルを削除
   int deletedCount = 0;
-  for (int i = 0; i < 10; i++) {
-    String filename = "/custom_" + String(i) + ".rgb565";
-    if (SPIFFS.exists(filename)) {
-      if (SPIFFS.remove(filename)) {
-        deletedCount++;
-        Serial.printf("Deleted custom image file: %s\n", filename.c_str());
+  for (int set = 0; set < MAX_IMAGE_SETS; set++) {
+    for (int i = 0; i < 10; i++) {
+      String filename = "/set" + String(set) + "_" + String(i) + ".rgb565";
+      if (SPIFFS.exists(filename)) {
+        if (SPIFFS.remove(filename)) {
+          deletedCount++;
+          Serial.printf("Deleted custom image file: %s\n", filename.c_str());
+        }
       }
     }
   }
@@ -514,7 +675,7 @@ void handleDeleteAll() {
   // 全てのディスプレイを強制更新
   bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
   
-  String message = "Deleted " + String(deletedCount) + " custom image(s)";
+  String message = "Deleted " + String(deletedCount) + " custom image(s) from all sets";
   webServer.send(200, "application/json", "{\"success\":true,\"message\":\"" + message + "\"}");
   Serial.println("All custom images deleted: " + String(deletedCount) + " files");
 }
@@ -708,6 +869,11 @@ void setup() {
   webServer.on("/api/delete-all", HTTP_POST, handleDeleteAll);  // 全カスタム画像削除
   webServer.on("/api/use-custom", HTTP_POST, handleUseCustom);
   webServer.on("/api/refresh", HTTP_POST, handleRefresh);
+  
+  // 3セット対応の新しいAPIエンドポイント
+  webServer.on("/api/set-switch", HTTP_POST, handleSetSwitch);  // セット切り替え
+  webServer.on("/api/get-sets", handleGetSets);  // セット一覧取得
+  webServer.on("/api/delete-set", HTTP_POST, handleDeleteSet);  // 指定セット削除
   
   // Webサーバー開始
   webServer.begin();
