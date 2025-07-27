@@ -383,6 +383,21 @@
             🔃 表示を更新
           </button>
         </div>
+
+        <!-- ストレージ情報セクション -->
+        <div class="upload-section">
+          <h2>📊 ストレージ情報</h2>
+          <div
+            id="storage-info"
+            style="font-family: monospace; line-height: 1.6"
+          >
+            <div>総容量: <span id="storage-total">---</span> KB</div>
+            <div>使用済み: <span id="storage-used">---</span> KB</div>
+            <div>空き容量: <span id="storage-free">---</span> KB</div>
+            <div>1画像サイズ: <span id="image-size">---</span> bytes</div>
+            <div>追加可能画像数: <span id="max-images">---</span> 枚</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -413,8 +428,45 @@
             document.getElementById("currentTime").textContent = "Error";
           });
       }
+
+      // ストレージ情報の更新
+      function updateStorageInfo() {
+        fetch("/api/status")
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.spiffs) {
+              document.getElementById("storage-total").textContent =
+                Math.round((data.spiffs.total / 1024) * 100) / 100;
+              document.getElementById("storage-used").textContent =
+                Math.round((data.spiffs.used / 1024) * 100) / 100;
+              document.getElementById("storage-free").textContent =
+                Math.round((data.spiffs.free / 1024) * 100) / 100;
+              document.getElementById("image-size").textContent =
+                data.spiffs.imageSize;
+              document.getElementById("max-images").textContent =
+                data.spiffs.maxImages;
+
+              // カラーコーディング（使用率に応じて）
+              const usagePercent = (data.spiffs.used / data.spiffs.total) * 100;
+              const usedElement = document.getElementById("storage-used");
+              if (usagePercent > 90) {
+                usedElement.style.color = "#ff4444";
+              } else if (usagePercent > 70) {
+                usedElement.style.color = "#ffaa00";
+              } else {
+                usedElement.style.color = "#44ff44";
+              }
+            }
+          })
+          .catch((error) => {
+            console.error("Storage info fetch error:", error);
+          });
+      }
+
       setInterval(updateTime, 1000);
+      setInterval(updateStorageInfo, 5000); // 5秒ごとに更新
       updateTime();
+      updateStorageInfo();
 
       // ステータス表示関数
       function setStatus(digit, message, type = "info") {

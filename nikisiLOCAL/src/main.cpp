@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <time.h>
 #include "config.h"  // WiFi設定をインクルード　*ssid　*password　*server　*timeZoneを外部で定義
+#include "qr_display.h"  // QRコード表示関連
 
 // ST7789 TFTディスプレイピン定義
 #define TFT_MOSI  6
@@ -62,6 +63,79 @@ int16_t displayX, displayY;
 
 // カスタム画像はSPIFFSから直接読み込み（メモリ節約）
 bool useCustomImages = false; // カスタム画像を使用するかのフラグ
+
+// SPIFFS容量管理機能
+void checkSPIFFSCapacity() {
+  size_t totalBytes = SPIFFS.totalBytes();
+  size_t usedBytes = SPIFFS.usedBytes();
+  size_t freeBytes = totalBytes - usedBytes;
+  
+  Serial.printf("=== SPIFFS Storage Info ===\n");
+  Serial.printf("Total: %zu bytes (%.2f KB)\n", totalBytes, totalBytes / 1024.0);
+  Serial.printf("Used:  %zu bytes (%.2f KB)\n", usedBytes, usedBytes / 1024.0);
+  Serial.printf("Free:  %zu bytes (%.2f KB)\n", freeBytes, freeBytes / 1024.0);
+  
+  // 1つの画像当たり約18,700バイト（70×134×2バイト）必要
+  int imageSize = 70 * 134 * 2;
+  int maxImages = freeBytes / imageSize;
+  Serial.printf("Image size: %d bytes each\n", imageSize);
+  Serial.printf("Can store approximately %d more custom images\n", maxImages);
+  Serial.println("===========================");
+}
+
+// 保存済みカスタム画像の一覧表示
+void listSavedImages() {
+  Serial.println("=== Saved Custom Images ===");
+  int savedCount = 0;
+  for (int i = 0; i < 10; i++) {
+    String filename = "/custom_" + String(i) + ".rgb565";
+    if (SPIFFS.exists(filename)) {
+      File file = SPIFFS.open(filename, "r");
+      if (file) {
+        Serial.printf("Digit %d: %s (%zu bytes)\n", i, filename.c_str(), file.size());
+        file.close();
+        savedCount++;
+      }
+    }
+  }
+  Serial.printf("Total saved images: %d/10\n", savedCount);
+  Serial.println("===========================");
+}
+
+// 設定を保存する関数
+void saveSettings() {
+  File settingsFile = SPIFFS.open("/settings.json", "w");
+  if (settingsFile) {
+    String settings = "{\"useCustomImages\":" + String(useCustomImages ? "true" : "false") + "}";
+    settingsFile.print(settings);
+    settingsFile.close();
+    Serial.println("Settings saved to SPIFFS");
+  } else {
+    Serial.println("Failed to save settings");
+  }
+}
+
+// 設定を読み込む関数
+void loadSettings() {
+  if (SPIFFS.exists("/settings.json")) {
+    File settingsFile = SPIFFS.open("/settings.json", "r");
+    if (settingsFile) {
+      String settings = settingsFile.readString();
+      settingsFile.close();
+      
+      // JSON解析（簡易版）
+      if (settings.indexOf("\"useCustomImages\":true") >= 0) {
+        useCustomImages = true;
+        Serial.println("Custom images enabled from saved settings");
+      } else {
+        useCustomImages = false;
+        Serial.println("Custom images disabled from saved settings");
+      }
+    }
+  } else {
+    Serial.println("No saved settings found, using defaults");
+  }
+}
 const int maxImageSize = 70 * 134; // 画像の最大サイズ（デフォルトサイズ）
 const int maxImageWidth = 70;  // 幅（デフォルトサイズ）
 const int maxImageHeight = 134; // 高さ（デフォルトサイズ）
@@ -375,13 +449,30 @@ void handleStatus() {
     status += hasCustomImage(i) ? "true" : "false";
   }
   status += "],";
-  status += "\"freeHeap\":" + String(ESP.getFreeHeap());
+  status += "\"freeHeap\":" + String(ESP.getFreeHeap()) + ",";
+  
+  // SPIFFS容量情報を追加
+  size_t totalBytes = SPIFFS.totalBytes();
+  size_t usedBytes = SPIFFS.usedBytes();
+  size_t freeBytes = totalBytes - usedBytes;
+  int imageSize = 70 * 134 * 2; // 1画像のサイズ
+  int maxImages = freeBytes / imageSize;
+  
+  status += "\"spiffs\":{";
+  status += "\"total\":" + String(totalBytes) + ",";
+  status += "\"used\":" + String(usedBytes) + ",";
+  status += "\"free\":" + String(freeBytes) + ",";
+  status += "\"imageSize\":" + String(imageSize) + ",";
+  status += "\"maxImages\":" + String(maxImages);
+  status += "}";
+  
   status += "}";
   webServer.send(200, "application/json", status);
 }
 
 void handleReset() {
   useCustomImages = false;
+  saveSettings(); // 設定を保存
   
   // カスタム画像ファイルは削除せず、使用フラグのみリセット
   // これにより画像は保持されるが、デフォルト画像が表示される
@@ -395,6 +486,7 @@ void handleReset() {
 // 新しいAPI: カスタム画像を完全削除
 void handleDeleteAll() {
   useCustomImages = false;
+  saveSettings(); // 設定を保存
   
   // 全てのカスタム画像ファイルを削除
   int deletedCount = 0;
@@ -418,6 +510,8 @@ void handleDeleteAll() {
 
 void handleUseCustom() {
   useCustomImages = true;
+  saveSettings(); // 設定を保存
+  
   // 全てのディスプレイを強制更新（カスタム画像は必要時に読み込み）
   bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
   webServer.send(200, "application/json", "{\"success\":true}");
@@ -485,6 +579,13 @@ void setup() {
     Serial.println("SPIFFS initialized successfully");
     // メモリ節約のため起動時のロードは行わない
     Serial.printf("Free heap after SPIFFS init: %d bytes\n", ESP.getFreeHeap());
+    
+    // 設定を読み込み
+    loadSettings();
+    
+    // 保存済み画像とストレージ情報を表示
+    listSavedImages();
+    checkSPIFFSCapacity();
   }
   
   // Webサーバールート設定
@@ -507,6 +608,11 @@ void setup() {
   Serial.print("Access at: http://");
   Serial.println(WiFi.localIP());
   
+  // QRコードを5秒間表示
+  displayQRCode(displays, 6);
+  startTime = millis();
+  qrCodeDisplayed = true;
+  
   Serial.println("Nixie Tube Clock Ready!");
 }
 
@@ -520,21 +626,31 @@ void loop() {
     initializeWiFi();
   }
   
-  // 1秒ごとに時刻更新
-  if (millis() - ps_Time >= 1000) {
-    if (getLocalTime(&localTime)) {
-      hour = localTime.tm_hour;
-      minute = localTime.tm_min;
-      second = localTime.tm_sec;
+  // QRコード表示時間チェック
+  if (qrCodeDisplayed && (millis() - startTime >= QR_DISPLAY_DURATION)) {
+    endQRCodeDisplay(displays, 6);
+    // 前回の時刻をリセットして強制更新
+    bh1 = 99; bh0 = 99; bm1 = 99; bm0 = 99; bs1 = 99; bs0 = 99;
+  }
+  
+  // QRコード表示中は時計表示をスキップ
+  if (!qrCodeDisplayed) {
+    // 1秒ごとに時刻更新
+    if (millis() - ps_Time >= 1000) {
+      if (getLocalTime(&localTime)) {
+        hour = localTime.tm_hour;
+        minute = localTime.tm_min;
+        second = localTime.tm_sec;
+        
+        Serial.printf("%02d:%02d:%02d\n", hour, minute, second);
+        // ニキシー管時計表示更新
+        updateClock();
+      } else {
+        Serial.println("Failed to get time");
+      }
       
-      Serial.printf("%02d:%02d:%02d\n", hour, minute, second);
-            // ニキシー管時計表示更新
-      updateClock();
-    } else {
-      Serial.println("Failed to get time");
+      ps_Time = millis();
     }
-    
-    ps_Time = millis();
   }
   
   delay(50); // CPU負荷軽減
