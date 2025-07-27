@@ -172,6 +172,13 @@
         background: linear-gradient(45deg, #f57c00, #ff9800);
         box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
       }
+      .control-button.danger {
+        background: linear-gradient(45deg, #f44336, #d32f2f);
+      }
+      .control-button.danger:hover {
+        background: linear-gradient(45deg, #d32f2f, #f44336);
+        box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
+      }
       .info-box {
         background: rgba(33, 150, 243, 0.1);
         border: 1px solid rgba(33, 150, 243, 0.3);
@@ -378,6 +385,9 @@
           </button>
           <button class="control-button" onclick="useCustomImages()">
             ✨ カスタム画像を使用
+          </button>
+          <button class="control-button danger" onclick="deleteAllImages()">
+            🗑️ 全カスタム画像を削除
           </button>
           <button class="control-button" onclick="refreshDisplay()">
             🔃 表示を更新
@@ -695,20 +705,57 @@
         img.src = URL.createObjectURL(file);
       }
 
-      // デフォルト画像にリセット
+      // デフォルト画像に切り替え（カスタム画像は保持）
       function resetToDefault() {
-        if (confirm("デフォルト画像に戻しますか？")) {
+        if (
+          confirm(
+            "デフォルト画像に切り替えますか？\n（カスタム画像は削除されません）"
+          )
+        ) {
           fetch("/api/reset", { method: "POST" })
             .then((response) => response.json())
             .then((data) => {
               if (data.success) {
-                alert("✓ デフォルト画像に戻しました");
+                alert(
+                  "✓ デフォルト画像に切り替えました\n📁 カスタム画像は保持されています"
+                );
+                updateStorageInfo(); // ストレージ情報を更新
               }
             })
             .catch((error) => {
               console.error("Reset error:", error);
-              alert("✗ リセットに失敗しました");
+              alert("✗ 切り替えに失敗しました");
             });
+        }
+      }
+
+      // 全カスタム画像を完全削除
+      function deleteAllImages() {
+        if (
+          confirm(
+            "⚠️ 警告: 全てのカスタム画像を完全に削除しますか？\n\nこの操作は取り消せません！"
+          )
+        ) {
+          if (
+            confirm(
+              "本当に削除しますか？\n削除されたカスタム画像は復元できません。"
+            )
+          ) {
+            fetch("/api/delete-all", { method: "POST" })
+              .then((response) => response.json())
+              .then((data) => {
+                if (data.success) {
+                  alert(
+                    "🗑️ " + (data.message || "全カスタム画像を削除しました")
+                  );
+                  updateStorageInfo(); // ストレージ情報を更新
+                }
+              })
+              .catch((error) => {
+                console.error("Delete all error:", error);
+                alert("✗ 削除に失敗しました");
+              });
+          }
         }
       }
 
