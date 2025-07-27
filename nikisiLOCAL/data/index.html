@@ -126,10 +126,20 @@
         font-size: 3em;
         text-align: center;
         margin: 20px 0;
-        color: #4caf50;
+        color: #44ff44;
         font-weight: bold;
-        text-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+        text-shadow: 0 0 20px rgba(68, 255, 68, 0.5);
         font-family: "Courier New", monospace;
+        transition: color 0.3s ease, text-shadow 0.3s ease;
+        cursor: help;
+      }
+      .current-time.error {
+        color: #ff4444;
+        text-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+      }
+      .current-time.warning {
+        color: #ffaa00;
+        text-shadow: 0 0 20px rgba(255, 170, 0, 0.5);
       }
       .controls {
         margin-top: 40px;
@@ -406,16 +416,41 @@
         });
       });
 
-      // 現在時刻の表示更新
+      // 現在時刻の表示更新（安定性改善）
+      let lastDisplayedTime = "";
+      let timeUpdateErrors = 0;
+      const MAX_TIME_ERRORS = 3;
+
       function updateTime() {
         fetch("/api/time")
           .then((response) => response.json())
           .then((data) => {
-            document.getElementById("currentTime").textContent = data.time;
+            // 時刻が変わった場合のみ更新
+            if (data.time && data.time !== lastDisplayedTime) {
+              document.getElementById("currentTime").textContent = data.time;
+              lastDisplayedTime = data.time;
+
+              // 初期化状態の表示
+              const statusElement = document.getElementById("currentTime");
+              if (data.initialized === false) {
+                statusElement.style.color = "#ffaa00"; // 黄色（未同期）
+                statusElement.title = "NTP未同期 - 手動カウンター使用中";
+              } else {
+                statusElement.style.color = "#44ff44"; // 緑色（同期済み）
+                statusElement.title = "NTP同期済み";
+              }
+            }
+            timeUpdateErrors = 0; // エラーカウンターリセット
           })
           .catch((error) => {
+            timeUpdateErrors++;
             console.error("Time update error:", error);
-            document.getElementById("currentTime").textContent = "Error";
+
+            if (timeUpdateErrors >= MAX_TIME_ERRORS) {
+              document.getElementById("currentTime").textContent =
+                "Connection Error";
+              document.getElementById("currentTime").style.color = "#ff4444";
+            }
           });
       }
 
@@ -453,7 +488,7 @@
           });
       }
 
-      setInterval(updateTime, 1000);
+      setInterval(updateTime, 500); // より頻繁に更新（500ms間隔）
       setInterval(updateStorageInfo, 5000); // 5秒ごとに更新
       updateTime();
       updateStorageInfo();

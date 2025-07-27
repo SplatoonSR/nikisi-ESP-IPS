@@ -52,6 +52,12 @@ int hour = 0, minute = 0, second = 0;
 int bh1 = 99, bh0 = 99, bm1 = 99, bm0 = 99, bs1 = 99, bs0 = 99; // 前回の時刻
 unsigned long ps_Time = 0;
 
+// 時刻管理の改善
+unsigned long lastNtpSync = 0;
+const unsigned long NTP_SYNC_INTERVAL = 3600000; // 1時間ごとにNTP同期
+bool timeInitialized = false;
+unsigned long localTimeOffset = 0; // ローカル時刻のオフセット
+
 // ニキシー管画像サイズ
 int iw = 70;   // 幅（デフォルト画像用）
 int ih = 134;  // 高さ（デフォルト画像用）
@@ -435,8 +441,13 @@ void handleUpload() {
 }
 
 void handleTime() {
-  String timeStr = String(hour) + ":" + String(minute) + ":" + String(second);
-  webServer.send(200, "application/json", "{\"time\":\"" + timeStr + "\"}");
+  // 時刻文字列を統一フォーマットで生成
+  char timeStr[16];
+  snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", hour, minute, second);
+  
+  String response = "{\"time\":\"" + String(timeStr) + "\",\"initialized\":" + 
+                   String(timeInitialized ? "true" : "false") + "}";
+  webServer.send(200, "application/json", response);
 }
 
 void handleStatus() {
@@ -511,8 +522,104 @@ void initializeWiFi() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
   
-  // NTP時刻同期
+  // NTP時刻同期を改善
+  Serial.println("Synchronizing time with NTP server...");
   configTime(9 * 3600, 0, ntpServer); // JST (UTC+9)
+  
+  // NTP同期を待機
+  struct tm timeinfo;
+  int retryCount = 0;
+  while (!getLocalTime(&timeinfo) && retryCount < 20) {
+    Serial.print(".");
+    delay(1000);
+    retryCount++;
+  }
+  
+  if (retryCount < 20) {
+    Serial.println("\nNTP time synchronized successfully!");
+    hour = timeinfo.tm_hour;
+    minute = timeinfo.tm_min;
+    second = timeinfo.tm_sec;
+    timeInitialized = true;
+    lastNtpSync = millis();
+    localTimeOffset = millis() - (hour * 3600 + minute * 60 + second) * 1000;
+    Serial.printf("Initial time: %02d:%02d:%02d\n", hour, minute, second);
+  } else {
+    Serial.println("\nNTP sync failed, using manual time");
+    // デフォルト時刻を設定
+    hour = 12;
+    minute = 0;
+    second = 0;
+    timeInitialized = false;
+  }
+}
+
+// 安定した時刻取得関数
+void updateTimeStable() {
+  if (timeInitialized) {
+    // NTP同期済みの場合、ローカルカウンターを使用
+    unsigned long currentMillis = millis();
+    unsigned long elapsedSeconds = (currentMillis - localTimeOffset) / 1000;
+    
+    second = elapsedSeconds % 60;
+    minute = (elapsedSeconds / 60) % 60;
+    hour = (elapsedSeconds / 3600) % 24;
+    
+    // 定期的なNTP再同期
+    if (currentMillis - lastNtpSync > NTP_SYNC_INTERVAL) {
+      struct tm timeinfo;
+      if (getLocalTime(&timeinfo)) {
+        // 大きなずれがある場合のみ補正
+        int ntpHour = timeinfo.tm_hour;
+        int ntpMinute = timeinfo.tm_min;
+        int ntpSecond = timeinfo.tm_sec;
+        
+        int timeDiff = abs((ntpHour * 3600 + ntpMinute * 60 + ntpSecond) - 
+                          (hour * 3600 + minute * 60 + second));
+        
+        if (timeDiff > 2) { // 2秒以上のずれがある場合
+          hour = ntpHour;
+          minute = ntpMinute;
+          second = ntpSecond;
+          localTimeOffset = currentMillis - (hour * 3600 + minute * 60 + second) * 1000;
+          Serial.printf("Time corrected: %02d:%02d:%02d (diff: %d sec)\n", hour, minute, second, timeDiff);
+        }
+        lastNtpSync = currentMillis;
+      }
+    }
+  } else {
+    // NTP未同期の場合、手動カウンター
+    static unsigned long lastSecondUpdate = 0;
+    if (millis() - lastSecondUpdate >= 1000) {
+      second++;
+      if (second >= 60) {
+        second = 0;
+        minute++;
+        if (minute >= 60) {
+          minute = 0;
+          hour++;
+          if (hour >= 24) {
+            hour = 0;
+          }
+        }
+      }
+      lastSecondUpdate = millis();
+      
+      // 定期的にNTP同期を試行
+      if (millis() - lastNtpSync > 60000) { // 1分ごと
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo)) {
+          hour = timeinfo.tm_hour;
+          minute = timeinfo.tm_min;
+          second = timeinfo.tm_sec;
+          timeInitialized = true;
+          localTimeOffset = millis() - (hour * 3600 + minute * 60 + second) * 1000;
+          Serial.println("NTP sync recovered!");
+        }
+        lastNtpSync = millis();
+      }
+    }
+  }
 }
 
 void setup() {
@@ -613,21 +720,19 @@ void loop() {
   
   // QRコード表示中は時計表示をスキップ
   if (!qrCodeDisplayed) {
-    // 1秒ごとに時刻更新
-    if (millis() - ps_Time >= 1000) {
-      if (getLocalTime(&localTime)) {
-        hour = localTime.tm_hour;
-        minute = localTime.tm_min;
-        second = localTime.tm_sec;
-        
+    // より安定した時刻更新（100ms間隔でチェック、1秒ごとに表示更新）
+    static unsigned long lastTimeUpdate = 0;
+    if (millis() - lastTimeUpdate >= 100) { // 100ms間隔で時刻チェック
+      int prevSecond = second;
+      updateTimeStable(); // 安定した時刻取得
+      
+      // 秒が変わった場合のみ表示を更新
+      if (second != prevSecond) {
         Serial.printf("%02d:%02d:%02d\n", hour, minute, second);
-        // ニキシー管時計表示更新
         updateClock();
-      } else {
-        Serial.println("Failed to get time");
       }
       
-      ps_Time = millis();
+      lastTimeUpdate = millis();
     }
   }
   
