@@ -382,17 +382,38 @@ void handleStatus() {
 
 void handleReset() {
   useCustomImages = false;
-  // カスタム画像ファイルを削除
+  
+  // カスタム画像ファイルは削除せず、使用フラグのみリセット
+  // これにより画像は保持されるが、デフォルト画像が表示される
+  
+  // 全てのディスプレイを強制更新
+  bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
+  webServer.send(200, "application/json", "{\"success\":true,\"message\":\"Switched to default images (custom images preserved)\"}");
+  Serial.println("Switched to default images, custom images preserved");
+}
+
+// 新しいAPI: カスタム画像を完全削除
+void handleDeleteAll() {
+  useCustomImages = false;
+  
+  // 全てのカスタム画像ファイルを削除
+  int deletedCount = 0;
   for (int i = 0; i < 10; i++) {
     String filename = "/custom_" + String(i) + ".rgb565";
     if (SPIFFS.exists(filename)) {
-      SPIFFS.remove(filename);
-      Serial.printf("Removed custom image file: %s\n", filename.c_str());
+      if (SPIFFS.remove(filename)) {
+        deletedCount++;
+        Serial.printf("Deleted custom image file: %s\n", filename.c_str());
+      }
     }
   }
+  
   // 全てのディスプレイを強制更新
   bh1 = bh0 = bm1 = bm0 = bs1 = bs0 = 99;
-  webServer.send(200, "application/json", "{\"success\":true}");
+  
+  String message = "Deleted " + String(deletedCount) + " custom image(s)";
+  webServer.send(200, "application/json", "{\"success\":true,\"message\":\"" + message + "\"}");
+  Serial.println("All custom images deleted: " + String(deletedCount) + " files");
 }
 
 void handleUseCustom() {
@@ -475,7 +496,8 @@ void setup() {
     handleUpload); // アップロードハンドラーを正しく設定
   webServer.on("/api/time", handleTime);
   webServer.on("/api/status", handleStatus);
-  webServer.on("/api/reset", HTTP_POST, handleReset);
+  webServer.on("/api/reset", HTTP_POST, handleReset);  // デフォルト画像に切り替え（画像保持）
+  webServer.on("/api/delete-all", HTTP_POST, handleDeleteAll);  // 全カスタム画像削除
   webServer.on("/api/use-custom", HTTP_POST, handleUseCustom);
   webServer.on("/api/refresh", HTTP_POST, handleRefresh);
   
