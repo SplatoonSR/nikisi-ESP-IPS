@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
   <head>
-    <title>Nixie Tube Clock - Premium Manager</title>
+    <title>ニキシー管時計 - プレミアム管理画面</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
@@ -12,7 +12,8 @@
       }
 
       body {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif,
+          "Hiragino Sans", "ヒラギノ角ゴシック", "メイリオ", Meiryo;
         background: linear-gradient(
           135deg,
           #0f0f23 0%,
@@ -362,127 +363,145 @@
   <body>
     <div class="container">
       <div class="header fade-in">
-        <h1>✨ Nixie Tube Clock Manager ✨</h1>
+        <h1>✨ ニキシー管時計管理システム ✨</h1>
         <div class="time" id="timeDisplay">--:--:--</div>
       </div>
 
       <!-- セット管理セクション -->
       <div class="section fade-in">
-        <h3>🎯 Image Set Management</h3>
+        <h3>🎯 画像セット管理</h3>
         <div class="info-card">
-          <h4>Current Configuration</h4>
+          <h4>現在の設定</h4>
           <p>
-            Manage up to 3 different image sets. Each set can contain custom
-            images for digits 0-9.
+            最大3つの異なる画像セットを管理できます。各セットには数字0-9のカスタム画像を保存できます。
           </p>
         </div>
 
         <div class="set-selector">
-          <label>Active Set:</label>
+          <label>アクティブセット:</label>
           <select id="setSelector">
-            <option value="0">Set 0 - Default</option>
-            <option value="1">Set 1 - Custom</option>
-            <option value="2">Set 2 - Special</option>
+            <option value="0">セット 0 - デフォルト</option>
+            <option value="1">セット 1 - カスタム</option>
+            <option value="2">セット 2 - スペシャル</option>
           </select>
           <button class="button success" onclick="switchSet()">
-            Switch to Selected Set
+            選択したセットに切り替え
           </button>
         </div>
 
         <div class="status" id="setStatus">
-          Loading set information... <span class="loading"></span>
+          セット情報を読み込み中... <span class="loading"></span>
         </div>
 
         <div class="control-group">
           <button class="button success" onclick="toggleCustomImages()">
-            Toggle Custom Images
+            カスタム画像のオン/オフ
           </button>
           <button class="button danger" onclick="deleteCurrentSet()">
-            Delete Current Set
+            現在のセットを削除
           </button>
           <button class="button danger" onclick="deleteAllSets()">
-            Delete All Sets
+            全セットを削除
           </button>
-          <button class="button" onclick="refreshDisplay()">
-            Refresh Display
-          </button>
+          <button class="button" onclick="refreshDisplay()">表示を更新</button>
         </div>
       </div>
 
       <!-- 画像アップロードセクション -->
       <div class="section fade-in">
-        <h3>📤 Upload Images to Current Set</h3>
+        <h3>📤 現在のセットに画像をアップロード</h3>
         <div class="info-card">
-          <h4>Upload Guidelines</h4>
+          <h4>アップロード ガイドライン</h4>
           <p>
-            • Image size: 70×134 pixels recommended<br />
-            • File format: PNG, JPG, GIF supported<br />
-            • File size limit: 50KB maximum<br />
-            • Images will be converted to RGB565 format automatically
+            • 推奨画像サイズ: 70×134 ピクセル<br />
+            • 対応ファイル形式: PNG、JPG、GIF、RGB565<br />
+            • ファイルサイズ制限: 最大 512KB（一般画像）、18,760バイト（RGB565）<br />
+            • 画像は自動的に70×134ピクセルのRGB565形式に変換されます<br />
+            • 縦横比は保持され、黒背景で中央配置されます
           </p>
         </div>
 
         <div class="upload-grid">
           <div class="digit-upload">
-            <label>🔢 Digit 0</label>
+            <label for="file0">🔢 数字 0</label>
             <input type="file" id="file0" accept="image/*" />
-            <button class="button" onclick="uploadImage(0)">Upload</button>
+            <button class="button" onclick="uploadImage(0)">
+              アップロード
+            </button>
           </div>
           <div class="digit-upload">
-            <label>1️⃣ Digit 1</label>
+            <label for="file1">1️⃣ 数字 1</label>
             <input type="file" id="file1" accept="image/*" />
-            <button class="button" onclick="uploadImage(1)">Upload</button>
+            <button class="button" onclick="uploadImage(1)">
+              アップロード
+            </button>
           </div>
           <div class="digit-upload">
-            <label>2️⃣ Digit 2</label>
+            <label for="file2">2️⃣ 数字 2</label>
             <input type="file" id="file2" accept="image/*" />
-            <button class="button" onclick="uploadImage(2)">Upload</button>
+            <button class="button" onclick="uploadImage(2)">
+              アップロード
+            </button>
           </div>
           <div class="digit-upload">
-            <label>3️⃣ Digit 3</label>
+            <label for="file3">3️⃣ 数字 3</label>
             <input type="file" id="file3" accept="image/*" />
-            <button class="button" onclick="uploadImage(3)">Upload</button>
+            <button class="button" onclick="uploadImage(3)">
+              アップロード
+            </button>
           </div>
           <div class="digit-upload">
-            <label>4️⃣ Digit 4</label>
+            <label for="file4">4️⃣ 数字 4</label>
             <input type="file" id="file4" accept="image/*" />
-            <button class="button" onclick="uploadImage(4)">Upload</button>
+            <button class="button" onclick="uploadImage(4)">
+              アップロード
+            </button>
           </div>
           <div class="digit-upload">
-            <label>5️⃣ Digit 5</label>
+            <label for="file5">5️⃣ 数字 5</label>
             <input type="file" id="file5" accept="image/*" />
-            <button class="button" onclick="uploadImage(5)">Upload</button>
+            <button class="button" onclick="uploadImage(5)">
+              アップロード
+            </button>
           </div>
           <div class="digit-upload">
-            <label>6️⃣ Digit 6</label>
+            <label for="file6">6️⃣ 数字 6</label>
             <input type="file" id="file6" accept="image/*" />
-            <button class="button" onclick="uploadImage(6)">Upload</button>
+            <button class="button" onclick="uploadImage(6)">
+              アップロード
+            </button>
           </div>
           <div class="digit-upload">
-            <label>7️⃣ Digit 7</label>
+            <label for="file7">7️⃣ 数字 7</label>
             <input type="file" id="file7" accept="image/*" />
-            <button class="button" onclick="uploadImage(7)">Upload</button>
+            <button class="button" onclick="uploadImage(7)">
+              アップロード
+            </button>
           </div>
           <div class="digit-upload">
-            <label>8️⃣ Digit 8</label>
+            <label for="file8">8️⃣ 数字 8</label>
             <input type="file" id="file8" accept="image/*" />
-            <button class="button" onclick="uploadImage(8)">Upload</button>
+            <button class="button" onclick="uploadImage(8)">
+              アップロード
+            </button>
           </div>
           <div class="digit-upload">
-            <label>9️⃣ Digit 9</label>
+            <label for="file9">9️⃣ 数字 9</label>
             <input type="file" id="file9" accept="image/*" />
-            <button class="button" onclick="uploadImage(9)">Upload</button>
+            <button class="button" onclick="uploadImage(9)">
+              アップロード
+            </button>
           </div>
         </div>
       </div>
 
       <!-- システム情報セクション -->
       <div class="section fade-in">
-        <h3>📊 System Information</h3>
+        <h3>📊 システム情報</h3>
         <div class="info-card">
-          <h4>Storage & Performance</h4>
+          <h4>ストレージとパフォーマンス</h4>
           <div class="status" id="systemStatus">
-            Loading system information... <span class="loading"></span>
+            システム情報を読み込み中... <span class="loading"></span>
           </div>
         </div>
       </div>
@@ -491,8 +510,31 @@
     <script>
       let currentSet = 0;
 
-      // 初期化
-      document.addEventListener("DOMContentLoaded", function () {
+      // ファイル選択時のラベル更新
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('input[type="file"]').forEach((input) => {
+          input.addEventListener("change", function () {
+            const digit = this.id.replace('file', '');
+            const label = document.querySelector(`label[for="${this.id}"]`);
+            if (!label) return;
+            
+            if (this.files.length > 0) {
+              const fileName = this.files[0].name;
+              if (fileName.length > 20) {
+                label.textContent = `📄 ${fileName.substring(0, 15)}...`;
+              } else {
+                label.textContent = `📄 ${fileName}`;
+              }
+            } else {
+              // 元のラベルに戻す
+              const digitNames = ['🔢 数字 0', '1️⃣ 数字 1', '2️⃣ 数字 2', '3️⃣ 数字 3', '4️⃣ 数字 4',
+                                 '5️⃣ 数字 5', '6️⃣ 数字 6', '7️⃣ 数字 7', '8️⃣ 数字 8', '9️⃣ 数字 9'];
+              label.textContent = digitNames[parseInt(digit)] || `数字 ${digit}`;
+            }
+          });
+        });
+        
+        // 初期化処理
         updateTime();
         updateSetInfo();
         updateSystemStatus();
@@ -522,7 +564,7 @@
             }
           })
           .catch((error) => {
-            console.error("Time update error:", error);
+            console.error("時刻更新エラー:", error);
           });
       }
 
@@ -534,21 +576,21 @@
             currentSet = data.currentSet;
             document.getElementById("setSelector").value = currentSet;
 
-            let statusText = `📋 Current Active Set: ${currentSet}\n\n`;
-            statusText += `📚 Set Status:\n`;
+            let statusText = `📋 現在のアクティブセット: ${currentSet}\n\n`;
+            statusText += `📚 セット状態:\n`;
             data.sets.forEach((set) => {
               const progress =
                 "█".repeat(Math.floor(set.imageCount / 2)) +
                 "░".repeat(5 - Math.floor(set.imageCount / 2));
-              statusText += `   Set ${set.id}: [${progress}] ${set.imageCount}/10 images\n`;
+              statusText += `   セット ${set.id}: [${progress}] ${set.imageCount}/10 画像\n`;
             });
 
             document.getElementById("setStatus").innerHTML = statusText;
           })
           .catch((error) => {
-            console.error("Set info error:", error);
+            console.error("セット情報エラー:", error);
             document.getElementById("setStatus").textContent =
-              "❌ Error loading set information";
+              "❌ セット情報の読み込みエラー";
           });
       }
 
@@ -562,27 +604,27 @@
             );
             const memoryMB = Math.round(data.freeHeap / 1024);
 
-            let statusText = `🎨 Custom Images: ${
-              data.useCustomImages ? "✅ ENABLED" : "❌ DISABLED"
+            let statusText = `🎨 カスタム画像: ${
+              data.useCustomImages ? "✅ 有効" : "❌ 無効"
             }\n`;
-            statusText += `💾 Free Memory: ${memoryMB} KB\n`;
-            statusText += `💽 Storage Usage: ${usagePercent}% (${Math.round(
+            statusText += `💾 空きメモリ: ${memoryMB} KB\n`;
+            statusText += `💽 ストレージ使用量: ${usagePercent}% (${Math.round(
               data.spiffs.used / 1024
             )} KB / ${Math.round(data.spiffs.total / 1024)} KB)\n`;
-            statusText += `📁 Active Sets: ${data.spiffs.usedSets}/${data.spiffs.maxSets}\n`;
+            statusText += `📁 使用中セット: ${data.spiffs.usedSets}/${data.spiffs.maxSets}\n`;
 
             // ストレージバー表示
             const storageBar =
               "█".repeat(Math.floor(usagePercent / 5)) +
               "░".repeat(20 - Math.floor(usagePercent / 5));
-            statusText += `📊 Storage: [${storageBar}] ${usagePercent}%`;
+            statusText += `📊 ストレージ: [${storageBar}] ${usagePercent}%`;
 
             document.getElementById("systemStatus").textContent = statusText;
           })
           .catch((error) => {
-            console.error("System status error:", error);
+            console.error("システムステータスエラー:", error);
             document.getElementById("systemStatus").textContent =
-              "❌ Error loading system status";
+              "❌ システムステータスの読み込みエラー";
           });
       }
 
@@ -592,7 +634,7 @@
         const button = event.target;
         const originalText = button.textContent;
 
-        button.textContent = "Switching...";
+        button.textContent = "切り替え中...";
         button.disabled = true;
 
         fetch("/api/set-switch", {
@@ -604,19 +646,19 @@
           .then((data) => {
             if (data.success) {
               showNotification(
-                `✅ Successfully switched to Set ${data.currentSet}`,
+                `✅ セット ${data.currentSet} に正常に切り替えました`,
                 "success"
               );
               updateSetInfo();
             } else {
               showNotification(
-                "❌ Error switching set: " + data.error,
+                "❌ セット切り替えエラー: " + data.error,
                 "error"
               );
             }
           })
           .catch((error) => {
-            showNotification("❌ Network error: " + error, "error");
+            showNotification("❌ ネットワークエラー: " + error, "error");
           })
           .finally(() => {
             button.textContent = originalText;
@@ -632,14 +674,14 @@
             showNotification(data.message, "success");
             updateSystemStatus();
           })
-          .catch((error) => showNotification("❌ Error: " + error, "error"));
+          .catch((error) => showNotification("❌ エラー: " + error, "error"));
       }
 
       // 現在のセットを削除
       function deleteCurrentSet() {
         if (
           confirm(
-            `🗑️ Delete all images in Set ${currentSet}?\n\nThis action cannot be undone!`
+            `🗑️ セット ${currentSet} の全画像を削除しますか？\n\nこの操作は元に戻せません！`
           )
         ) {
           fetch("/api/delete-set", {
@@ -653,7 +695,7 @@
               updateSetInfo();
               updateSystemStatus();
             })
-            .catch((error) => showNotification("❌ Error: " + error, "error"));
+            .catch((error) => showNotification("❌ エラー: " + error, "error"));
         }
       }
 
@@ -661,7 +703,7 @@
       function deleteAllSets() {
         if (
           confirm(
-            "⚠️ DELETE ALL IMAGES FROM ALL SETS?\n\nThis will permanently remove:\n• All custom images\n• All 3 image sets\n• Cannot be undone!\n\nAre you absolutely sure?"
+            "⚠️ 全セットの全画像を削除しますか？\n\n次の項目が完全に削除されます:\n• 全カスタム画像\n• 全3セット\n• 元に戻せません！\n\n本当によろしいですか？"
           )
         ) {
           fetch("/api/delete-all", { method: "POST" })
@@ -671,7 +713,7 @@
               updateSetInfo();
               updateSystemStatus();
             })
-            .catch((error) => showNotification("❌ Error: " + error, "error"));
+            .catch((error) => showNotification("❌ エラー: " + error, "error"));
         }
       }
 
@@ -681,60 +723,219 @@
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
-              showNotification("🔄 Display refreshed successfully", "success");
+              showNotification("🔄 表示を正常に更新しました", "success");
             }
           })
-          .catch((error) => showNotification("❌ Error: " + error, "error"));
+          .catch((error) => showNotification("❌ エラー: " + error, "error"));
       }
 
-      // 画像アップロード（改良版）
+      // RGB565フォーマットに変換する関数
+      function convertToRGB565(canvas) {
+        const ctx = canvas.getContext("2d");
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // RGB565データを格納するバッファ
+        const rgb565Buffer = new ArrayBuffer(canvas.width * canvas.height * 2);
+        const rgb565View = new Uint16Array(rgb565Buffer);
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i]; // Red
+          const g = data[i + 1]; // Green
+          const b = data[i + 2]; // Blue
+          // Alpha (data[i + 3]) は無視
+
+          // RGB565フォーマットに変換
+          const r5 = (r >> 3) & 0x1f;
+          const g6 = (g >> 2) & 0x3f;
+          const b5 = (b >> 3) & 0x1f;
+
+          const rgb565 = (r5 << 11) | (g6 << 5) | b5;
+          rgb565View[i / 4] = rgb565;
+        }
+
+        return rgb565Buffer;
+      }
+
+      // 画像アップロード関数（元のバックアップから復元・日本語版）
       function uploadImage(digit) {
         const fileInput = document.getElementById(`file${digit}`);
+
+        if (!fileInput.files[0]) {
+          showNotification("⚠️ まずファイルを選択してください", "warning");
+          return;
+        }
+
         const file = fileInput.files[0];
 
-        if (!file) {
-          showNotification("⚠️ Please select a file first", "warning");
+        // ファイルサイズチェック (512KB制限)
+        if (file.size > 512 * 1024) {
+          showNotification("⚠️ ファイルサイズが大きすぎます（最大512KB）", "warning");
           return;
         }
 
-        if (file.size > 50000) {
-          showNotification(
-            "⚠️ File too large. Please use images under 50KB.",
-            "warning"
-          );
+        // RGB565ファイルの場合は直接アップロード
+        if (file.name.endsWith(".rgb565")) {
+          // RGB565ファイルサイズチェック（18760バイト = 70*134*2）
+          const expectedSize = 70 * 134 * 2;
+          if (file.size !== expectedSize) {
+            showNotification(
+              `❌ RGB565ファイルサイズが不正です（期待値: ${expectedSize}バイト、実際: ${file.size}バイト）`,
+              "error"
+            );
+            return;
+          }
+
+          // RGB565ファイルを直接アップロード
+          performDirectUpload(digit, file);
           return;
         }
 
+        // 画像ファイルの場合は変換してアップロード
+        const img = new Image();
+        img.onload = function () {
+          // 縦横比を保ちつつリサイズするかチェック
+          const maxWidth = 70;
+          const maxHeight = 134;
+
+          let targetWidth = img.width;
+          let targetHeight = img.height;
+
+          // 最大サイズを超える場合は縦横比を保って縮小
+          if (img.width > maxWidth || img.height > maxHeight) {
+            const widthRatio = maxWidth / img.width;
+            const heightRatio = maxHeight / img.height;
+            const ratio = Math.min(widthRatio, heightRatio);
+
+            targetWidth = Math.floor(img.width * ratio);
+            targetHeight = Math.floor(img.height * ratio);
+
+            console.log(
+              `画像をリサイズします: ${img.width}×${img.height}px → ${targetWidth}×${targetHeight}px`
+            );
+          }
+          
+          // 画像をリサイズしてアップロード実行
+          performUpload(digit, file, targetWidth, targetHeight);
+        };
+
+        img.onerror = function () {
+          showNotification("❌ 無効な画像ファイルです", "error");
+        };
+
+        // 画像を読み込み
+        img.src = URL.createObjectURL(file);
+      }
+
+      // RGB565ファイル直接アップロード関数
+      function performDirectUpload(digit, file) {
         const formData = new FormData();
+        formData.append("digit", digit);
         formData.append("file", file);
 
-        // アップロード中の表示
-        const button = event.target;
-        const originalText = button.textContent;
-        button.textContent = "Uploading...";
-        button.disabled = true;
+        showNotification("📤 アップロード中...", "info");
 
-        fetch(`/upload?digit=${digit}`, {
+        fetch("/upload", {
           method: "POST",
           body: formData,
         })
-          .then((response) => response.text())
+          .then((response) => response.json())
           .then((data) => {
-            showNotification(
-              `📤 Upload successful for digit ${digit}`,
-              "success"
-            );
-            fileInput.value = "";
-            updateSetInfo();
-            updateSystemStatus();
+            if (data.success) {
+              showNotification(`✅ 数字 ${digit} のアップロードが完了しました`, "success");
+              document.getElementById(`file${digit}`).value = ""; // ファイル入力をクリア
+              // ラベルも元に戻す
+              const digitNames = ['🔢 数字 0', '1️⃣ 数字 1', '2️⃣ 数字 2', '3️⃣ 数字 3', '4️⃣ 数字 4',
+                                 '5️⃣ 数字 5', '6️⃣ 数字 6', '7️⃣ 数字 7', '8️⃣ 数字 8', '9️⃣ 数字 9'];
+              const label = document.querySelector(`label[for="file${digit}"]`);
+              if (label) label.textContent = digitNames[digit];
+              updateSetInfo();
+              updateSystemStatus();
+            } else {
+              showNotification(`❌ エラー: ${data.message}`, "error");
+            }
           })
           .catch((error) => {
-            showNotification("❌ Upload error: " + error, "error");
-          })
-          .finally(() => {
-            button.textContent = originalText;
-            button.disabled = false;
+            console.error("アップロードエラー:", error);
+            showNotification("❌ アップロードに失敗しました", "error");
           });
+      }
+
+      // 実際のアップロード実行関数
+      function performUpload(digit, file, targetWidth, targetHeight) {
+        showNotification("🔄 画像変換中...", "info");
+
+        const img = new Image();
+        img.onload = function () {
+          // Canvasを作成して画像を描画
+          const canvas = document.createElement("canvas");
+          canvas.width = 70; // デフォルト画像幅に合わせる
+          canvas.height = 134; // デフォルト画像高さに合わせる
+
+          const ctx = canvas.getContext("2d");
+
+          // 背景を黒で塗りつぶし
+          ctx.fillStyle = "#000000";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // 画像を中央配置で描画（縦横比を保持）
+          const offsetX = (canvas.width - targetWidth) / 2;
+          const offsetY = (canvas.height - targetHeight) / 2;
+          ctx.drawImage(img, offsetX, offsetY, targetWidth, targetHeight);
+
+          // RGB565フォーマットに変換
+          const rgb565Buffer = convertToRGB565(canvas);
+
+          // RGB565データをBlobとして作成
+          const blob = new Blob([rgb565Buffer], {
+            type: "application/octet-stream",
+          });
+
+          // ファイルサイズをデバッグ表示
+          console.log(
+            `生成されたRGB565ファイルサイズ: ${blob.size}バイト（期待値: ${
+              70 * 134 * 2
+            }）`
+          );
+
+          // FormDataを作成してアップロード
+          const formData = new FormData();
+          formData.append("digit", digit);
+          formData.append("file", blob, `custom_${digit}.rgb565`);
+
+          showNotification("📤 変換済み画像をアップロード中...", "info");
+
+          fetch("/upload", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                showNotification(`✅ 数字 ${digit} のアップロードが完了しました`, "success");
+                document.getElementById(`file${digit}`).value = ""; // ファイル入力をクリア
+                // ラベルも元に戻す
+                const digitNames = ['🔢 数字 0', '1️⃣ 数字 1', '2️⃣ 数字 2', '3️⃣ 数字 3', '4️⃣ 数字 4',
+                                   '5️⃣ 数字 5', '6️⃣ 数字 6', '7️⃣ 数字 7', '8️⃣ 数字 8', '9️⃣ 数字 9'];
+                const label = document.querySelector(`label[for="file${digit}"]`);
+                if (label) label.textContent = digitNames[digit];
+                updateSetInfo();
+                updateSystemStatus();
+              } else {
+                showNotification(`❌ エラー: ${data.message}`, "error");
+              }
+            })
+            .catch((error) => {
+              console.error("アップロードエラー:", error);
+              showNotification("❌ アップロードに失敗しました", "error");
+            });
+        };
+
+        img.onerror = function () {
+          showNotification("❌ 画像読み込みエラー", "error");
+        };
+
+        img.src = URL.createObjectURL(file);
       }
 
       // 通知システム（新機能）
