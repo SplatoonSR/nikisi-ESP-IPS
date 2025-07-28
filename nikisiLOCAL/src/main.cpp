@@ -6,6 +6,7 @@
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <DNSServer.h>
 #include "config.h"  // WiFi設定をインクルード　*ssid　*password　*server　*timeZoneを外部で定義
 #include "qr_display.h"  // QRコード表示関連
 
@@ -44,6 +45,19 @@ Arduino_GFX* displays[6] = {gfx1, gfx2, gfx3, gfx4, gfx5, gfx6};
 
 // Webサーバーオブジェクト
 WebServer webServer(80);
+DNSServer dnsServer;
+
+// WiFi設定関連
+bool apMode = false;
+const char* apSSID = "NixieClock-Setup";
+const char* apPassword = "12345678";
+String storedSSID = "";
+String storedPassword = "";
+const unsigned long WIFI_TIMEOUT = 10000; // 10秒でタイムアウト
+
+// 関数の前方宣言
+void startAccessPoint();
+void displayAPQRCode();
 
 struct tm localTime;
 
@@ -152,13 +166,17 @@ void listSavedImages() {
 void saveSettings() {
   File settingsFile = SPIFFS.open("/settings.json", "w");
   if (settingsFile) {
-    String settings = "{";
-    settings += "\"useCustomImages\":" + String(useCustomImages ? "true" : "false") + ",";
-    settings += "\"currentImageSet\":" + String(currentImageSet);
-    settings += "}";
+    JsonDocument doc;
+    doc["useCustomImages"] = useCustomImages;
+    doc["currentImageSet"] = currentImageSet;
+    doc["wifiSSID"] = storedSSID;
+    doc["wifiPassword"] = storedPassword;
+    
+    String settings;
+    serializeJson(doc, settings);
     settingsFile.print(settings);
     settingsFile.close();
-    Serial.println("Settings saved to SPIFFS (set: " + String(currentImageSet) + ")");
+    Serial.println("Settings saved to SPIFFS (set: " + String(currentImageSet) + ", WiFi: " + storedSSID + ")");
   } else {
     Serial.println("Failed to save settings");
   }
@@ -172,27 +190,30 @@ void loadSettings() {
       String settings = settingsFile.readString();
       settingsFile.close();
       
+      JsonDocument doc;
+      deserializeJson(doc, settings);
+      
       // useCustomImagesの読み込み
-      if (settings.indexOf("\"useCustomImages\":true") >= 0) {
-        useCustomImages = true;
-        Serial.println("Custom images enabled from saved settings");
-      } else {
-        useCustomImages = false;
-        Serial.println("Custom images disabled from saved settings");
-      }
+      useCustomImages = doc["useCustomImages"] | false;
+      Serial.println("Custom images " + String(useCustomImages ? "enabled" : "disabled") + " from saved settings");
       
       // currentImageSetの読み込み
-      int setIndex = settings.indexOf("\"currentImageSet\":");
-      if (setIndex != -1) {
-        int valueStart = settings.indexOf(":", setIndex) + 1;
-        int valueEnd = settings.indexOf(",", valueStart);
-        if (valueEnd == -1) valueEnd = settings.indexOf("}", valueStart);
-        String value = settings.substring(valueStart, valueEnd);
-        value.trim();
-        int newSet = value.toInt();
-        if (newSet >= 0 && newSet < MAX_IMAGE_SETS) {
-          currentImageSet = newSet;
-          Serial.println("Current image set loaded: " + String(currentImageSet));
+      int newSet = doc["currentImageSet"] | 0;
+      if (newSet >= 0 && newSet < MAX_IMAGE_SETS) {
+        currentImageSet = newSet;
+        Serial.println("Current image set loaded: " + String(currentImageSet));
+      }
+      
+      // WiFi設定の読み込み
+      storedSSID = doc["wifiSSID"] | "";
+      storedPassword = doc["wifiPassword"] | "";
+      if (storedSSID.length() > 0) {
+        Serial.println("Stored WiFi settings loaded: " + storedSSID);
+        Serial.println("Stored password length: " + String(storedPassword.length()));
+        if (storedPassword.length() > 0) {
+          Serial.println("Password starts with: " + storedPassword.substring(0, min(3, (int)storedPassword.length())));
+        } else {
+          Serial.println("Warning: Stored password is empty!");
         }
       }
     }
@@ -200,6 +221,8 @@ void loadSettings() {
     Serial.println("No saved settings found, using defaults");
     useCustomImages = false;
     currentImageSet = 0;
+    storedSSID = "";
+    storedPassword = "";
   }
 }
 const int maxImageSize = 70 * 134; // 画像の最大サイズ（デフォルトサイズ）
@@ -490,13 +513,83 @@ void handleDeleteSet() {
 
 // Webサーバーハンドラー関数
 void handleRoot() {
-  File file = SPIFFS.open("/index.html", "r");
-  if (!file) {
-    webServer.send(404, "text/plain", "File not found");
-    return;
+  if (apMode) {
+    // APモード用の設定画面を表示
+    String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>WiFi Setup</title>";
+    html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+    html += "<style>body{font-family:Arial;margin:40px;background:#f0f0f0}";
+    html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,0.1)}";
+    html += "input{width:100%;padding:10px;margin:10px 0;border:1px solid #ddd;border-radius:5px}";
+    html += "button{background:#007cba;color:white;padding:12px 20px;border:none;border-radius:5px;cursor:pointer;width:100%}";
+    html += "button:hover{background:#005a8b}</style></head><body>";
+    html += "<div class='container'><h2>🕐 ニキシー管時計 WiFi設定</h2>";
+    html += "<p>新しいWiFiネットワークに接続するための設定を入力してください。</p>";
+    html += "<form action='/wifi-config' method='POST'>";
+    html += "<label>WiFi SSID:</label><input type='text' name='ssid' required>";
+    html += "<label>パスワード:</label><input type='password' name='password' required>";
+    html += "<button type='submit'>接続</button></form>";
+    html += "<hr><p><small>現在のアクセスポイント: " + String(apSSID) + "</small></p></div></body></html>";
+    webServer.send(200, "text/html", html);
+  } else {
+    // 通常モード用のメイン画面
+    File file = SPIFFS.open("/index.html", "r");
+    if (!file) {
+      webServer.send(404, "text/plain", "File not found");
+      return;
+    }
+    webServer.streamFile(file, "text/html");
+    file.close();
   }
-  webServer.streamFile(file, "text/html");
-  file.close();
+}
+
+// WiFi設定を処理
+void handleWiFiConfig() {
+  if (webServer.hasArg("ssid") && webServer.hasArg("password")) {
+    String newSSID = webServer.arg("ssid");
+    String newPassword = webServer.arg("password");
+    
+    Serial.println("New WiFi config received: " + newSSID);
+    
+    // 設定を保存
+    storedSSID = newSSID;
+    storedPassword = newPassword;
+    saveSettings();
+    
+    // 成功画面を表示
+    String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>WiFi Setup</title>";
+    html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+    html += "<style>body{font-family:Arial;margin:40px;background:#f0f0f0;text-align:center}";
+    html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,0.1)}";
+    html += ".success{color:#28a745;font-size:18px}</style></head><body>";
+    html += "<div class='container'><h2>✅ 設定完了</h2>";
+    html += "<p class='success'>WiFi設定が保存されました！</p>";
+    html += "<p>デバイスが新しいネットワークに接続します。<br>接続完了後、新しいIPアドレスでアクセスしてください。</p>";
+    html += "<p><small>約30秒後に自動的に再起動します...</small></p></div></body></html>";
+    webServer.send(200, "text/html", html);
+    
+    // 少し待ってから再起動
+    delay(3000);
+    ESP.restart();
+  } else {
+    webServer.send(400, "text/plain", "Missing parameters");
+  }
+}
+
+// WiFi情報を取得
+void handleWiFiInfo() {
+  String response = "{";
+  response += "\"mode\":\"" + String(apMode ? "AP" : "STA") + "\",";
+  if (apMode) {
+    response += "\"apSSID\":\"" + String(apSSID) + "\",";
+    response += "\"apIP\":\"" + WiFi.softAPIP().toString() + "\",";
+    response += "\"clients\":" + String(WiFi.softAPgetStationNum());
+  } else {
+    response += "\"ssid\":\"" + WiFi.SSID() + "\",";
+    response += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
+    response += "\"rssi\":" + String(WiFi.RSSI());
+  }
+  response += "}";
+  webServer.send(200, "application/json", response);
 }
 
 void handleUpload() {
@@ -691,49 +784,167 @@ void handleUseCustom() {
 
 // WiFi接続関数
 void initializeWiFi() {
-  WiFi.begin(ssid, password);
-  Serial.print("WiFi connecting");
+  bool connected = false;
   
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  // WiFiネットワークをスキャンして利用可能なネットワークを表示
+  Serial.println("Scanning for available WiFi networks...");
+  int networkCount = WiFi.scanNetworks();
+  Serial.println("Found " + String(networkCount) + " networks:");
+  for (int i = 0; i < networkCount; i++) {
+    Serial.printf("  %d: %s (RSSI: %d) %s\n", i, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "Open" : "Encrypted");
   }
+  Serial.println("---");
   
-  Serial.println("");
-  Serial.println("WiFi connected!");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-  
-  // NTP時刻同期を改善
-  Serial.println("Synchronizing time with NTP server...");
-  configTime(9 * 3600, 0, ntpServer); // JST (UTC+9)
-  
-  // NTP同期を待機
-  struct tm timeinfo;
-  int retryCount = 0;
-  while (!getLocalTime(&timeinfo) && retryCount < 20) {
-    Serial.print(".");
-    delay(1000);
-    retryCount++;
-  }
-  
-  if (retryCount < 20) {
-    Serial.println("\nNTP time synchronized successfully!");
-    hour = timeinfo.tm_hour;
-    minute = timeinfo.tm_min;
-    second = timeinfo.tm_sec;
-    timeInitialized = true;
-    lastNtpSync = millis();
-    localTimeOffset = millis() - (hour * 3600 + minute * 60 + second) * 1000;
-    Serial.printf("Initial time: %02d:%02d:%02d\n", hour, minute, second);
+  // 1. 保存されたWiFi設定を最初に試行
+  if (storedSSID.length() > 0 && storedPassword.length() > 0) {
+    Serial.println("Trying saved WiFi settings: " + storedSSID);
+    Serial.println("Saved password length: " + String(storedPassword.length()));
+    Serial.println("Saved password (first 3 chars): " + storedPassword.substring(0, min(3, (int)storedPassword.length())) + "...");
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(storedSSID.c_str(), storedPassword.c_str());
+    
+    unsigned long startTime = millis();
+    Serial.print("WiFi connecting to saved network");
+    
+    while (WiFi.status() != WL_CONNECTED && millis() - startTime < WIFI_TIMEOUT) {
+      delay(500);
+      Serial.print(".");
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      connected = true;
+      Serial.println("");
+      Serial.println("WiFi connected to saved network!");
+    } else {
+      Serial.println("");
+      Serial.println("Saved WiFi connection failed. Status: " + String(WiFi.status()));
+      Serial.println("Saved WiFi settings failed, trying config.h settings...");
+    }
   } else {
-    Serial.println("\nNTP sync failed, using manual time");
-    // デフォルト時刻を設定
-    hour = 12;
-    minute = 0;
-    second = 0;
-    timeInitialized = false;
+    Serial.println("No saved WiFi settings found (SSID: '" + storedSSID + "', Password length: " + String(storedPassword.length()) + ")");
+    Serial.println("Skipping to config.h settings...");
   }
+  
+  // 2. 保存された設定で失敗した場合、config.hの設定を試行（無効化）
+  if (!connected && false) { // config.hでの接続を無効化
+    Serial.println("Trying config.h WiFi settings: " + String(ssid));
+    Serial.println("Config.h password length: " + String(strlen(password)));
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    
+    unsigned long startTime = millis();
+    Serial.print("WiFi connecting to config.h network");
+    
+    while (WiFi.status() != WL_CONNECTED && millis() - startTime < WIFI_TIMEOUT) {
+      delay(500);
+      Serial.print(".");
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      connected = true;
+      Serial.println("");
+      Serial.println("WiFi connected to config.h network!");
+    } else {
+      Serial.println("");
+      Serial.println("Config.h WiFi connection failed. Status: " + String(WiFi.status()));
+      Serial.println("Config.h WiFi settings also failed.");
+    }
+  }
+  
+  if (connected) {
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+    apMode = false;
+    
+    // NTP時刻同期を改善
+    Serial.println("Synchronizing time with NTP server...");
+    configTime(9 * 3600, 0, ntpServer); // JST (UTC+9)
+    
+    // NTP同期を待機
+    struct tm timeinfo;
+    int retryCount = 0;
+    while (!getLocalTime(&timeinfo) && retryCount < 20) {
+      Serial.print(".");
+      delay(1000);
+      retryCount++;
+    }
+    
+    if (retryCount < 20) {
+      Serial.println("\nNTP time synchronized successfully!");
+      hour = timeinfo.tm_hour;
+      minute = timeinfo.tm_min;
+      second = timeinfo.tm_sec;
+      timeInitialized = true;
+      lastNtpSync = millis();
+      localTimeOffset = millis() - (hour * 3600 + minute * 60 + second) * 1000;
+      Serial.printf("Initial time: %02d:%02d:%02d\n", hour, minute, second);
+    } else {
+      Serial.println("\nNTP sync failed, using manual time");
+      // デフォルト時刻を設定
+      hour = 12;
+      minute = 0;
+      second = 0;
+      timeInitialized = false;
+    }
+  } else {
+    Serial.println("All WiFi connection attempts failed. Starting Access Point mode...");
+    startAccessPoint();
+  }
+}
+
+// アクセスポイントモードを開始
+void startAccessPoint() {
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(apSSID, apPassword);
+  
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
+  
+  apMode = true;
+  
+  // DNSサーバーを開始（キャプティブポータル用）
+  dnsServer.start(53, "*", IP);
+  
+  Serial.println("Access Point started!");
+  Serial.println("Connect to WiFi: " + String(apSSID));
+  Serial.println("Password: " + String(apPassword));
+  Serial.println("Then open browser and go to: http://" + IP.toString());
+  
+  // APモード用のQRコードを表示
+  displayAPQRCode();
+}
+
+// APモード用のQRコード表示
+void displayAPQRCode() {
+  // APモードの接続情報をQRコードで表示
+  String apInfo = "WIFI:T:WPA;S:" + String(apSSID) + ";P:" + String(apPassword) + ";;";
+  Serial.println("Displaying AP QR code for: " + apInfo);
+  
+  for (int displayIndex = 0; displayIndex < 6; displayIndex++) {
+    Arduino_GFX* display = displays[displayIndex];
+    display->fillScreen(WHITE);
+    
+    // APモード表示用の簡単なテキスト
+    display->setTextColor(BLACK);
+    display->setTextSize(1);
+    display->setCursor(5, 50);
+    display->println("WiFi Setup");
+    display->setCursor(5, 70);
+    display->println("SSID:");
+    display->setCursor(5, 90);
+    display->println(apSSID);
+    display->setCursor(5, 110);
+    display->println("PASS:");
+    display->setCursor(5, 130);
+    display->println(apPassword);
+    display->setCursor(5, 160);
+    display->println("Setup:");
+    display->setCursor(5, 180);
+    display->println(WiFi.softAPIP().toString());
+  }
+  
+  Serial.println("AP setup info displayed on all screens");
 }
 
 // 安定した時刻取得関数
@@ -837,9 +1048,6 @@ void setup() {
   // }
   
 
-  // WiFi接続
-  initializeWiFi();
-  
   // SPIFFS初期化（画像保存用）
   if (!SPIFFS.begin(true)) {
     Serial.println("SPIFFS initialization failed!");
@@ -848,7 +1056,7 @@ void setup() {
     // メモリ節約のため起動時のロードは行わない
     Serial.printf("Free heap after SPIFFS init: %d bytes\n", ESP.getFreeHeap());
     
-    // 設定を読み込み
+    // 設定を読み込み（WiFi初期化前に実行）
     loadSettings();
     
     // 保存済み画像とストレージ情報を表示
@@ -856,8 +1064,13 @@ void setup() {
     checkSPIFFSCapacity();
   }
   
+  // WiFi接続（設定読み込み後に実行）
+  initializeWiFi();
+  
   // Webサーバールート設定
   webServer.on("/", handleRoot);
+  webServer.on("/wifi-config", HTTP_POST, handleWiFiConfig);  // WiFi設定
+  webServer.on("/api/wifi-info", handleWiFiInfo);  // WiFi情報取得
   webServer.on("/upload", HTTP_POST, 
     []() { 
       // POSTレスポンスはhandleUpload内で処理される
@@ -875,26 +1088,48 @@ void setup() {
   webServer.on("/api/get-sets", handleGetSets);  // セット一覧取得
   webServer.on("/api/delete-set", HTTP_POST, handleDeleteSet);  // 指定セット削除
   
+  // キャプティブポータル用（APモード時）
+  webServer.onNotFound([]() {
+    if (apMode) {
+      handleRoot();  // APモード時は全てのリクエストを設定画面にリダイレクト
+    } else {
+      webServer.send(404, "text/plain", "Not found");
+    }
+  });
+  
   // Webサーバー開始
   webServer.begin();
   Serial.println("Web server started");
-  Serial.print("Access at: http://");
-  Serial.println(WiFi.localIP());
   
-  // QRコードを5秒間表示
-  displayQRCode(displays, 6);
-  startTime = millis();
-  qrCodeDisplayed = true;
+  if (!apMode) {
+    Serial.print("Access at: http://");
+    Serial.println(WiFi.localIP());
+    
+    // WiFi接続成功時のみQRコードを5秒間表示
+    displayQRCode(displays, 6);
+    startTime = millis();
+    qrCodeDisplayed = true;
+  } else {
+    Serial.print("Setup at: http://");
+    Serial.println(WiFi.softAPIP());
+    // APモード時はQRコード表示はしない（既に設定画面が表示されているため）
+    qrCodeDisplayed = false;
+  }
   
   Serial.println("Nixie Tube Clock Ready!");
 }
 
 void loop() {
+  // APモード時はDNSサーバーも処理
+  if (apMode) {
+    dnsServer.processNextRequest();
+  }
+  
   // Webサーバーリクエスト処理
   webServer.handleClient();
   
-  // WiFi接続チェック
-  if (WiFi.status() != WL_CONNECTED) {
+  // WiFi接続チェック（STAモード時のみ）
+  if (!apMode && WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected. Reconnecting...");
     initializeWiFi();
   }
@@ -907,7 +1142,8 @@ void loop() {
   }
   
   // QRコード表示中は時計表示をスキップ
-  if (!qrCodeDisplayed) {
+  // APモード時は時計表示もスキップ
+  if (!qrCodeDisplayed && !apMode) {
     // より安定した時刻更新（100ms間隔でチェック、1秒ごとに表示更新）
     static unsigned long lastTimeUpdate = 0;
     if (millis() - lastTimeUpdate >= 100) { // 100ms間隔で時刻チェック
