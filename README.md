@@ -2,6 +2,7 @@
 
 ESP32-C3 と 6 個の ST7789 TFT ディスプレイを使用した WebUI 対応ニキシー管風デジタル時計
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-ESP32--C3-orange.svg)
 ![Build](https://img.shields.io/badge/build-PlatformIO-green.svg)
 ![Version](https://img.shields.io/badge/version-3.0-red.svg)
@@ -85,8 +86,8 @@ ricmoo/QRCode@^0.0.1
 
 ```bash
 # プロジェクトをクローン
-git clone <repository_url>
-cd nikisiLOCAL
+git clone https://github.com/SplatoonSR/nikisi-ESP-IPS.git
+cd nikisi-ESP-IPS/nikisiLOCAL
 
 # WebファイルをSPIFFSにアップロード（重要！）
 pio run -t uploadfs
@@ -107,7 +108,7 @@ pio device monitor
 ### 🥈 手動設定方式（上級者向け）
 
 ```cpp
-// src/config.h で直接設定
+// nikisiLOCAL/src/config.h で直接設定
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 const char* ntpServer = "ntp.nict.jp";
@@ -282,27 +283,32 @@ const char* ntpServer = "ntp.nict.jp";
 ## 📁 プロジェクト構成
 
 ```
-nikisiLOCAL/
-├── 📄 platformio.ini          # PlatformIO設定ファイル
-├── 📄 README.md               # このファイル（完全版ドキュメント）
-├── 📂 src/                    # ソースコードディレクトリ
-│   ├── 🎯 main.cpp            # メインプログラム（ESP32制御・WebServer・WiFi管理）
-│   ├── ⚙️ config.h            # WiFi設定（手動設定用・gitignore対象）
-│   ├── 📋 config.h.example    # WiFi設定テンプレート
-│   ├── 🎨 image_data.h        # デフォルトニキシー管画像データ
-│   └── � qr_display.h/cpp    # QRコード表示機能
-├── 📂 data/                   # SPIFFS用Webファイル
-│   ├── 🌐 index.html          # WebUI（3セット対応・画像アップロード）
-│   └── 🎨 style.css           # WebUI用CSS（index.html内包）
-├── 📂 include/                # ヘッダーファイル（予約）
-├── 📂 lib/                    # プライベートライブラリ（予約）
-├── 📂 test/                   # テストファイル（予約）
-└── 📄 .gitignore              # Git除外設定
+nikisi-ESP-IPS/
+├── 📄 README.md               # このファイル（プロジェクト概要・完全版ドキュメント）
+└── 📂 nikisiLOCAL/            # メインプロジェクトディレクトリ
+    ├── 📄 platformio.ini      # PlatformIO設定ファイル
+    ├── 📂 src/                # ソースコードディレクトリ
+    │   ├── 🎯 main.cpp        # メインプログラム（ESP32制御・WebServer・WiFi管理）
+    │   ├── ⚙️ config.h        # WiFi設定（手動設定用・gitignore対象）
+    │   ├── 📋 config.h.example # WiFi設定テンプレート
+    │   ├── 🎨 image_data.h    # デフォルトニキシー管画像データ
+    │   ├── 📡 qr_display.h    # QRコード表示機能ヘッダー
+    │   └── 📡 qr_display.cpp  # QRコード表示機能実装
+    ├── 📂 data/               # SPIFFS用Webファイル
+    │   ├── 🌐 index.html      # WebUI（3セット対応・画像アップロード）
+    │   ├── � index_japanese.html # 日本語版WebUI
+    │   ├── 🌐 index_premium.html  # プレミアム版WebUI
+    │   ├── 🌐 index_simple.html   # シンプル版WebUI
+    │   └── 🎨 style.css       # WebUI用CSS
+    ├── 📂 include/            # ヘッダーファイル（予約）
+    ├── 📂 lib/                # プライベートライブラリ（予約）
+    ├── 📂 test/               # テストファイル（予約）
+    └── 📄 .gitignore          # Git除外設定
 ```
 
 ### 🔧 重要ファイル詳細
 
-#### `src/main.cpp`
+#### `nikisiLOCAL/src/main.cpp`
 
 - **機能**: ESP32 メインプログラム
 - **主要処理**:
@@ -312,7 +318,7 @@ nikisiLOCAL/
   - カスタム画像管理（SPIFFS）
   - メモリ最適化処理
 
-#### `data/index.html`
+#### `nikisiLOCAL/data/index.html`
 
 - **機能**: WebUI インターフェース
 - **主要機能**:
@@ -353,7 +359,7 @@ nikisiLOCAL/
 **解決方法**:
 
 ```cpp
-// config.hの設定を確認
+// nikisiLOCAL/src/config.hの設定を確認
 const char* ssid = "正確なSSID";
 const char* password = "正確なパスワード";
 ```
@@ -394,7 +400,7 @@ const char* password = "正確なパスワード";
 **解決方法**:
 
 ```cpp
-// main.cppでタイムゾーン確認
+// nikisiLOCAL/src/main.cppでタイムゾーン確認
 configTime(9 * 3600, 0, ntpServer); // JST (UTC+9)
 ```
 
@@ -413,6 +419,30 @@ configTime(9 * 3600, 0, ntpServer); // JST (UTC+9)
 | **WiFi 到達距離** | 一般的   | 10-30m        |
 
 ## 🤝 貢献とライセンス
+
+### 🤝 貢献方法
+
+このプロジェクトへの貢献を歓迎します！
+
+1. **バグ報告**: [Issues](https://github.com/SplatoonSR/nikisi-ESP-IPS/issues) でバグを報告
+2. **機能リクエスト**: 新機能のアイデアを Issues で提案
+3. **プルリクエスト**: コードの改善や新機能の実装
+
+### 📄 ライセンス
+
+このプロジェクトは MIT ライセンスの下で公開されています。詳細は [LICENSE](LICENSE) ファイルをご覧ください。
+
+- ✅ 商用利用可能
+- ✅ 改変・再配布可能
+- ✅ プライベート利用可能
+- ⚠️ ライセンス表示が必要
+
+### 👨‍💻 作成者
+
+**SplatoonSR**
+
+- GitHub: [@SplatoonSR](https://github.com/SplatoonSR)
+- Repository: [nikisi-ESP-IPS](https://github.com/SplatoonSR/nikisi-ESP-IPS)
 
 ## 📚 参考資料
 
