@@ -414,79 +414,78 @@
           <h4>アップロード ガイドライン</h4>
           <p>
             • 推奨画像サイズ: 70×134 ピクセル<br />
-            • 対応ファイル形式: PNG、JPG、GIF、RGB565<br />
-            • ファイルサイズ制限: 最大 512KB（一般画像）、18,760バイト（RGB565）<br />
-            • 画像は自動的に70×134ピクセルのRGB565形式に変換されます<br />
-            • 縦横比は保持され、黒背景で中央配置されます
+            • 対応ファイル形式: PNG、JPG、GIF<br />
+            • ファイルサイズ制限: 最大 50KB<br />
+            • 画像は自動的にRGB565形式に変換されます
           </p>
         </div>
 
         <div class="upload-grid">
           <div class="digit-upload">
-            <label for="file0">🔢 数字 0</label>
+            <label>🔢 数字 0</label>
             <input type="file" id="file0" accept="image/*" />
             <button class="button" onclick="uploadImage(0)">
               アップロード
             </button>
           </div>
           <div class="digit-upload">
-            <label for="file1">1️⃣ 数字 1</label>
+            <label>1️⃣ 数字 1</label>
             <input type="file" id="file1" accept="image/*" />
             <button class="button" onclick="uploadImage(1)">
               アップロード
             </button>
           </div>
           <div class="digit-upload">
-            <label for="file2">2️⃣ 数字 2</label>
+            <label>2️⃣ 数字 2</label>
             <input type="file" id="file2" accept="image/*" />
             <button class="button" onclick="uploadImage(2)">
               アップロード
             </button>
           </div>
           <div class="digit-upload">
-            <label for="file3">3️⃣ 数字 3</label>
+            <label>3️⃣ 数字 3</label>
             <input type="file" id="file3" accept="image/*" />
             <button class="button" onclick="uploadImage(3)">
               アップロード
             </button>
           </div>
           <div class="digit-upload">
-            <label for="file4">4️⃣ 数字 4</label>
+            <label>4️⃣ 数字 4</label>
             <input type="file" id="file4" accept="image/*" />
             <button class="button" onclick="uploadImage(4)">
               アップロード
             </button>
           </div>
           <div class="digit-upload">
-            <label for="file5">5️⃣ 数字 5</label>
+            <label>5️⃣ 数字 5</label>
             <input type="file" id="file5" accept="image/*" />
             <button class="button" onclick="uploadImage(5)">
               アップロード
             </button>
           </div>
           <div class="digit-upload">
-            <label for="file6">6️⃣ 数字 6</label>
+            <label>6️⃣ 数字 6</label>
             <input type="file" id="file6" accept="image/*" />
             <button class="button" onclick="uploadImage(6)">
               アップロード
             </button>
           </div>
           <div class="digit-upload">
-            <label for="file7">7️⃣ 数字 7</label>
+            <label>7️⃣ 数字 7</label>
             <input type="file" id="file7" accept="image/*" />
             <button class="button" onclick="uploadImage(7)">
               アップロード
             </button>
           </div>
           <div class="digit-upload">
-            <label for="file8">8️⃣ 数字 8</label>
+            <label>8️⃣ 数字 8</label>
             <input type="file" id="file8" accept="image/*" />
             <button class="button" onclick="uploadImage(8)">
               アップロード
             </button>
           </div>
           <div class="digit-upload">
-            <label for="file9">9️⃣ 数字 9</label>
+            <label>9️⃣ 数字 9</label>
             <input type="file" id="file9" accept="image/*" />
             <button class="button" onclick="uploadImage(9)">
               アップロード
@@ -510,31 +509,8 @@
     <script>
       let currentSet = 0;
 
-      // ファイル選択時のラベル更新
-      document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('input[type="file"]').forEach((input) => {
-          input.addEventListener("change", function () {
-            const digit = this.id.replace('file', '');
-            const label = document.querySelector(`label[for="${this.id}"]`);
-            if (!label) return;
-            
-            if (this.files.length > 0) {
-              const fileName = this.files[0].name;
-              if (fileName.length > 20) {
-                label.textContent = `📄 ${fileName.substring(0, 15)}...`;
-              } else {
-                label.textContent = `📄 ${fileName}`;
-              }
-            } else {
-              // 元のラベルに戻す
-              const digitNames = ['🔢 数字 0', '1️⃣ 数字 1', '2️⃣ 数字 2', '3️⃣ 数字 3', '4️⃣ 数字 4',
-                                 '5️⃣ 数字 5', '6️⃣ 数字 6', '7️⃣ 数字 7', '8️⃣ 数字 8', '9️⃣ 数字 9'];
-              label.textContent = digitNames[parseInt(digit)] || `数字 ${digit}`;
-            }
-          });
-        });
-        
-        // 初期化処理
+      // 初期化
+      document.addEventListener("DOMContentLoaded", function () {
         updateTime();
         updateSetInfo();
         updateSystemStatus();
@@ -729,213 +705,54 @@
           .catch((error) => showNotification("❌ エラー: " + error, "error"));
       }
 
-      // RGB565フォーマットに変換する関数
-      function convertToRGB565(canvas) {
-        const ctx = canvas.getContext("2d");
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-
-        // RGB565データを格納するバッファ
-        const rgb565Buffer = new ArrayBuffer(canvas.width * canvas.height * 2);
-        const rgb565View = new Uint16Array(rgb565Buffer);
-
-        for (let i = 0; i < data.length; i += 4) {
-          const r = data[i]; // Red
-          const g = data[i + 1]; // Green
-          const b = data[i + 2]; // Blue
-          // Alpha (data[i + 3]) は無視
-
-          // RGB565フォーマットに変換
-          const r5 = (r >> 3) & 0x1f;
-          const g6 = (g >> 2) & 0x3f;
-          const b5 = (b >> 3) & 0x1f;
-
-          const rgb565 = (r5 << 11) | (g6 << 5) | b5;
-          rgb565View[i / 4] = rgb565;
-        }
-
-        return rgb565Buffer;
-      }
-
-      // 画像アップロード関数（元のバックアップから復元・日本語版）
+      // 画像アップロード（改良版）
       function uploadImage(digit) {
         const fileInput = document.getElementById(`file${digit}`);
+        const file = fileInput.files[0];
 
-        if (!fileInput.files[0]) {
+        if (!file) {
           showNotification("⚠️ まずファイルを選択してください", "warning");
           return;
         }
 
-        const file = fileInput.files[0];
-
-        // ファイルサイズチェック (512KB制限)
-        if (file.size > 512 * 1024) {
-          showNotification("⚠️ ファイルサイズが大きすぎます（最大512KB）", "warning");
+        if (file.size > 50000) {
+          showNotification(
+            "⚠️ ファイルサイズが大きすぎます。50KB以下の画像を使用してください。",
+            "warning"
+          );
           return;
         }
 
-        // RGB565ファイルの場合は直接アップロード
-        if (file.name.endsWith(".rgb565")) {
-          // RGB565ファイルサイズチェック（18760バイト = 70*134*2）
-          const expectedSize = 70 * 134 * 2;
-          if (file.size !== expectedSize) {
-            showNotification(
-              `❌ RGB565ファイルサイズが不正です（期待値: ${expectedSize}バイト、実際: ${file.size}バイト）`,
-              "error"
-            );
-            return;
-          }
-
-          // RGB565ファイルを直接アップロード
-          performDirectUpload(digit, file);
-          return;
-        }
-
-        // 画像ファイルの場合は変換してアップロード
-        const img = new Image();
-        img.onload = function () {
-          // 縦横比を保ちつつリサイズするかチェック
-          const maxWidth = 70;
-          const maxHeight = 134;
-
-          let targetWidth = img.width;
-          let targetHeight = img.height;
-
-          // 最大サイズを超える場合は縦横比を保って縮小
-          if (img.width > maxWidth || img.height > maxHeight) {
-            const widthRatio = maxWidth / img.width;
-            const heightRatio = maxHeight / img.height;
-            const ratio = Math.min(widthRatio, heightRatio);
-
-            targetWidth = Math.floor(img.width * ratio);
-            targetHeight = Math.floor(img.height * ratio);
-
-            console.log(
-              `画像をリサイズします: ${img.width}×${img.height}px → ${targetWidth}×${targetHeight}px`
-            );
-          }
-          
-          // 画像をリサイズしてアップロード実行
-          performUpload(digit, file, targetWidth, targetHeight);
-        };
-
-        img.onerror = function () {
-          showNotification("❌ 無効な画像ファイルです", "error");
-        };
-
-        // 画像を読み込み
-        img.src = URL.createObjectURL(file);
-      }
-
-      // RGB565ファイル直接アップロード関数
-      function performDirectUpload(digit, file) {
         const formData = new FormData();
-        formData.append("digit", digit);
         formData.append("file", file);
 
-        showNotification("📤 アップロード中...", "info");
+        // アップロード中の表示
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = "アップロード中...";
+        button.disabled = true;
 
-        fetch("/upload", {
+        fetch(`/upload?digit=${digit}`, {
           method: "POST",
           body: formData,
         })
-          .then((response) => response.json())
+          .then((response) => response.text())
           .then((data) => {
-            if (data.success) {
-              showNotification(`✅ 数字 ${digit} のアップロードが完了しました`, "success");
-              document.getElementById(`file${digit}`).value = ""; // ファイル入力をクリア
-              // ラベルも元に戻す
-              const digitNames = ['🔢 数字 0', '1️⃣ 数字 1', '2️⃣ 数字 2', '3️⃣ 数字 3', '4️⃣ 数字 4',
-                                 '5️⃣ 数字 5', '6️⃣ 数字 6', '7️⃣ 数字 7', '8️⃣ 数字 8', '9️⃣ 数字 9'];
-              const label = document.querySelector(`label[for="file${digit}"]`);
-              if (label) label.textContent = digitNames[digit];
-              updateSetInfo();
-              updateSystemStatus();
-            } else {
-              showNotification(`❌ エラー: ${data.message}`, "error");
-            }
+            showNotification(
+              `📤 数字 ${digit} のアップロードが完了しました`,
+              "success"
+            );
+            fileInput.value = "";
+            updateSetInfo();
+            updateSystemStatus();
           })
           .catch((error) => {
-            console.error("アップロードエラー:", error);
-            showNotification("❌ アップロードに失敗しました", "error");
-          });
-      }
-
-      // 実際のアップロード実行関数
-      function performUpload(digit, file, targetWidth, targetHeight) {
-        showNotification("🔄 画像変換中...", "info");
-
-        const img = new Image();
-        img.onload = function () {
-          // Canvasを作成して画像を描画
-          const canvas = document.createElement("canvas");
-          canvas.width = 70; // デフォルト画像幅に合わせる
-          canvas.height = 134; // デフォルト画像高さに合わせる
-
-          const ctx = canvas.getContext("2d");
-
-          // 背景を黒で塗りつぶし
-          ctx.fillStyle = "#000000";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          // 画像を中央配置で描画（縦横比を保持）
-          const offsetX = (canvas.width - targetWidth) / 2;
-          const offsetY = (canvas.height - targetHeight) / 2;
-          ctx.drawImage(img, offsetX, offsetY, targetWidth, targetHeight);
-
-          // RGB565フォーマットに変換
-          const rgb565Buffer = convertToRGB565(canvas);
-
-          // RGB565データをBlobとして作成
-          const blob = new Blob([rgb565Buffer], {
-            type: "application/octet-stream",
-          });
-
-          // ファイルサイズをデバッグ表示
-          console.log(
-            `生成されたRGB565ファイルサイズ: ${blob.size}バイト（期待値: ${
-              70 * 134 * 2
-            }）`
-          );
-
-          // FormDataを作成してアップロード
-          const formData = new FormData();
-          formData.append("digit", digit);
-          formData.append("file", blob, `custom_${digit}.rgb565`);
-
-          showNotification("📤 変換済み画像をアップロード中...", "info");
-
-          fetch("/upload", {
-            method: "POST",
-            body: formData,
+            showNotification("❌ アップロードエラー: " + error, "error");
           })
-            .then((response) => response.json())
-            .then((data) => {
-              if (data.success) {
-                showNotification(`✅ 数字 ${digit} のアップロードが完了しました`, "success");
-                document.getElementById(`file${digit}`).value = ""; // ファイル入力をクリア
-                // ラベルも元に戻す
-                const digitNames = ['🔢 数字 0', '1️⃣ 数字 1', '2️⃣ 数字 2', '3️⃣ 数字 3', '4️⃣ 数字 4',
-                                   '5️⃣ 数字 5', '6️⃣ 数字 6', '7️⃣ 数字 7', '8️⃣ 数字 8', '9️⃣ 数字 9'];
-                const label = document.querySelector(`label[for="file${digit}"]`);
-                if (label) label.textContent = digitNames[digit];
-                updateSetInfo();
-                updateSystemStatus();
-              } else {
-                showNotification(`❌ エラー: ${data.message}`, "error");
-              }
-            })
-            .catch((error) => {
-              console.error("アップロードエラー:", error);
-              showNotification("❌ アップロードに失敗しました", "error");
-            });
-        };
-
-        img.onerror = function () {
-          showNotification("❌ 画像読み込みエラー", "error");
-        };
-
-        img.src = URL.createObjectURL(file);
+          .finally(() => {
+            button.textContent = originalText;
+            button.disabled = false;
+          });
       }
 
       // 通知システム（新機能）

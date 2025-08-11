@@ -415,7 +415,8 @@
           <p>
             • 推奨画像サイズ: 70×134 ピクセル<br />
             • 対応ファイル形式: PNG、JPG、GIF、RGB565<br />
-            • ファイルサイズ制限: 最大 512KB（一般画像）、18,760バイト（RGB565）<br />
+            • ファイルサイズ制限: 最大
+            512KB（一般画像）、18,760バイト（RGB565）<br />
             • 画像は自動的に70×134ピクセルのRGB565形式に変換されます<br />
             • 縦横比は保持され、黒背景で中央配置されます
           </p>
@@ -511,13 +512,13 @@
       let currentSet = 0;
 
       // ファイル選択時のラベル更新
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll('input[type="file"]').forEach((input) => {
           input.addEventListener("change", function () {
-            const digit = this.id.replace('file', '');
+            const digit = this.id.replace("file", "");
             const label = document.querySelector(`label[for="${this.id}"]`);
             if (!label) return;
-            
+
             if (this.files.length > 0) {
               const fileName = this.files[0].name;
               if (fileName.length > 20) {
@@ -527,13 +528,24 @@
               }
             } else {
               // 元のラベルに戻す
-              const digitNames = ['🔢 数字 0', '1️⃣ 数字 1', '2️⃣ 数字 2', '3️⃣ 数字 3', '4️⃣ 数字 4',
-                                 '5️⃣ 数字 5', '6️⃣ 数字 6', '7️⃣ 数字 7', '8️⃣ 数字 8', '9️⃣ 数字 9'];
-              label.textContent = digitNames[parseInt(digit)] || `数字 ${digit}`;
+              const digitNames = [
+                "🔢 数字 0",
+                "1️⃣ 数字 1",
+                "2️⃣ 数字 2",
+                "3️⃣ 数字 3",
+                "4️⃣ 数字 4",
+                "5️⃣ 数字 5",
+                "6️⃣ 数字 6",
+                "7️⃣ 数字 7",
+                "8️⃣ 数字 8",
+                "9️⃣ 数字 9",
+              ];
+              label.textContent =
+                digitNames[parseInt(digit)] || `数字 ${digit}`;
             }
           });
         });
-        
+
         // 初期化処理
         updateTime();
         updateSetInfo();
@@ -770,7 +782,10 @@
 
         // ファイルサイズチェック (512KB制限)
         if (file.size > 512 * 1024) {
-          showNotification("⚠️ ファイルサイズが大きすぎます（最大512KB）", "warning");
+          showNotification(
+            "⚠️ ファイルサイズが大きすぎます（最大512KB）",
+            "warning"
+          );
           return;
         }
 
@@ -814,7 +829,7 @@
               `画像をリサイズします: ${img.width}×${img.height}px → ${targetWidth}×${targetHeight}px`
             );
           }
-          
+
           // 画像をリサイズしてアップロード実行
           performUpload(digit, file, targetWidth, targetHeight);
         };
@@ -842,11 +857,24 @@
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
-              showNotification(`✅ 数字 ${digit} のアップロードが完了しました`, "success");
+              showNotification(
+                `✅ 数字 ${digit} のアップロードが完了しました`,
+                "success"
+              );
               document.getElementById(`file${digit}`).value = ""; // ファイル入力をクリア
               // ラベルも元に戻す
-              const digitNames = ['🔢 数字 0', '1️⃣ 数字 1', '2️⃣ 数字 2', '3️⃣ 数字 3', '4️⃣ 数字 4',
-                                 '5️⃣ 数字 5', '6️⃣ 数字 6', '7️⃣ 数字 7', '8️⃣ 数字 8', '9️⃣ 数字 9'];
+              const digitNames = [
+                "🔢 数字 0",
+                "1️⃣ 数字 1",
+                "2️⃣ 数字 2",
+                "3️⃣ 数字 3",
+                "4️⃣ 数字 4",
+                "5️⃣ 数字 5",
+                "6️⃣ 数字 6",
+                "7️⃣ 数字 7",
+                "8️⃣ 数字 8",
+                "9️⃣ 数字 9",
+              ];
               const label = document.querySelector(`label[for="file${digit}"]`);
               if (label) label.textContent = digitNames[digit];
               updateSetInfo();
@@ -912,12 +940,27 @@
             .then((response) => response.json())
             .then((data) => {
               if (data.success) {
-                showNotification(`✅ 数字 ${digit} のアップロードが完了しました`, "success");
+                showNotification(
+                  `✅ 数字 ${digit} のアップロードが完了しました`,
+                  "success"
+                );
                 document.getElementById(`file${digit}`).value = ""; // ファイル入力をクリア
                 // ラベルも元に戻す
-                const digitNames = ['🔢 数字 0', '1️⃣ 数字 1', '2️⃣ 数字 2', '3️⃣ 数字 3', '4️⃣ 数字 4',
-                                   '5️⃣ 数字 5', '6️⃣ 数字 6', '7️⃣ 数字 7', '8️⃣ 数字 8', '9️⃣ 数字 9'];
-                const label = document.querySelector(`label[for="file${digit}"]`);
+                const digitNames = [
+                  "🔢 数字 0",
+                  "1️⃣ 数字 1",
+                  "2️⃣ 数字 2",
+                  "3️⃣ 数字 3",
+                  "4️⃣ 数字 4",
+                  "5️⃣ 数字 5",
+                  "6️⃣ 数字 6",
+                  "7️⃣ 数字 7",
+                  "8️⃣ 数字 8",
+                  "9️⃣ 数字 9",
+                ];
+                const label = document.querySelector(
+                  `label[for="file${digit}"]`
+                );
                 if (label) label.textContent = digitNames[digit];
                 updateSetInfo();
                 updateSystemStatus();

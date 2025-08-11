@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Nixie Clock - 3 Sets</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background: #1a1a1a;
+        color: #fff;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: #2d2d2d;
+        border-radius: 10px;
+      }
+      .section {
+        background: #2d2d2d;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 10px;
+      }
+      .button {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      .button:hover {
+        background: #45a049;
+      }
+      .button.danger {
+        background: #f44336;
+      }
+      .button.danger:hover {
+        background: #da190b;
+      }
+      .upload-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+        margin-top: 20px;
+      }
+      .digit-upload {
+        text-align: center;
+        padding: 10px;
+        background: #3d3d3d;
+        border-radius: 5px;
+      }
+      .set-selector {
+        margin: 10px 0;
+      }
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        background: #3d3d3d;
+      }
+      .time {
+        font-size: 2em;
+        text-align: center;
+        color: #4caf50;
+        margin: 20px 0;
+      }
+      input[type="file"] {
+        width: 100%;
+        padding: 5px;
+        background: #4d4d4d;
+        color: white;
+        border: 1px solid #666;
+        border-radius: 3px;
+      }
+      select {
+        padding: 8px;
+        background: #4d4d4d;
+        color: white;
+        border: 1px solid #666;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Nixie Tube Clock Manager</h1>
+        <div class="time" id="timeDisplay">--:--:--</div>
+      </div>
+
+      <!-- セット管理セクション -->
+      <div class="section">
+        <h3>Image Set Management (3 Sets Maximum)</h3>
+        <div class="set-selector">
+          <label>Current Set: </label>
+          <select id="setSelector">
+            <option value="0">Set 0</option>
+            <option value="1">Set 1</option>
+            <option value="2">Set 2</option>
+          </select>
+          <button class="button" onclick="switchSet()">Switch Set</button>
+        </div>
+
+        <div class="status" id="setStatus">Loading set information...</div>
+
+        <div>
+          <button class="button" onclick="toggleCustomImages()">
+            Toggle Custom Images
+          </button>
+          <button class="button danger" onclick="deleteCurrentSet()">
+            Delete Current Set
+          </button>
+          <button class="button danger" onclick="deleteAllSets()">
+            Delete All Sets
+          </button>
+          <button class="button" onclick="refreshDisplay()">
+            Refresh Display
+          </button>
+        </div>
+      </div>
+
+      <!-- 画像アップロードセクション -->
+      <div class="section">
+        <h3>Upload Images to Current Set</h3>
+        <div class="upload-grid">
+          <div class="digit-upload">
+            <label>Digit 0</label>
+            <input type="file" id="file0" accept="image/*" />
+            <button class="button" onclick="uploadImage(0)">Upload</button>
+          </div>
+          <div class="digit-upload">
+            <label>Digit 1</label>
+            <input type="file" id="file1" accept="image/*" />
+            <button class="button" onclick="uploadImage(1)">Upload</button>
+          </div>
+          <div class="digit-upload">
+            <label>Digit 2</label>
+            <input type="file" id="file2" accept="image/*" />
+            <button class="button" onclick="uploadImage(2)">Upload</button>
+          </div>
+          <div class="digit-upload">
+            <label>Digit 3</label>
+            <input type="file" id="file3" accept="image/*" />
+            <button class="button" onclick="uploadImage(3)">Upload</button>
+          </div>
+          <div class="digit-upload">
+            <label>Digit 4</label>
+            <input type="file" id="file4" accept="image/*" />
+            <button class="button" onclick="uploadImage(4)">Upload</button>
+          </div>
+          <div class="digit-upload">
+            <label>Digit 5</label>
+            <input type="file" id="file5" accept="image/*" />
+            <button class="button" onclick="uploadImage(5)">Upload</button>
+          </div>
+          <div class="digit-upload">
+            <label>Digit 6</label>
+            <input type="file" id="file6" accept="image/*" />
+            <button class="button" onclick="uploadImage(6)">Upload</button>
+          </div>
+          <div class="digit-upload">
+            <label>Digit 7</label>
+            <input type="file" id="file7" accept="image/*" />
+            <button class="button" onclick="uploadImage(7)">Upload</button>
+          </div>
+          <div class="digit-upload">
+            <label>Digit 8</label>
+            <input type="file" id="file8" accept="image/*" />
+            <button class="button" onclick="uploadImage(8)">Upload</button>
+          </div>
+          <div class="digit-upload">
+            <label>Digit 9</label>
+            <input type="file" id="file9" accept="image/*" />
+            <button class="button" onclick="uploadImage(9)">Upload</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- システム情報セクション -->
+      <div class="section">
+        <h3>System Information</h3>
+        <div class="status" id="systemStatus">
+          Loading system information...
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let currentSet = 0;
+
+      // 初期化
+      document.addEventListener("DOMContentLoaded", function () {
+        updateTime();
+        updateSetInfo();
+        updateSystemStatus();
+
+        // 時刻更新（軽量化：5秒間隔）
+        setInterval(updateTime, 5000);
+
+        // ステータス更新（軽量化：30秒間隔）
+        setInterval(function () {
+          updateSetInfo();
+          updateSystemStatus();
+        }, 30000);
+      });
+
+      // 時刻更新（軽量版）
+      function updateTime() {
+        fetch("/api/time")
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById("timeDisplay").textContent =
+              data.time || "--:--:--";
+          })
+          .catch((error) => {
+            console.error("Time update error:", error);
+          });
+      }
+
+      // セット情報更新
+      function updateSetInfo() {
+        fetch("/api/get-sets")
+          .then((response) => response.json())
+          .then((data) => {
+            currentSet = data.currentSet;
+            document.getElementById("setSelector").value = currentSet;
+
+            let statusText = `Current Set: ${currentSet}\n`;
+            data.sets.forEach((set) => {
+              statusText += `Set ${set.id}: ${set.imageCount}/10 images\n`;
+            });
+            document.getElementById("setStatus").textContent = statusText;
+          })
+          .catch((error) => {
+            console.error("Set info error:", error);
+            document.getElementById("setStatus").textContent =
+              "Error loading set information";
+          });
+      }
+
+      // システムステータス更新
+      function updateSystemStatus() {
+        fetch("/api/status")
+          .then((response) => response.json())
+          .then((data) => {
+            let statusText = `Custom Images: ${
+              data.useCustomImages ? "ON" : "OFF"
+            }\n`;
+            statusText += `Free Memory: ${data.freeHeap} bytes\n`;
+            statusText += `SPIFFS: ${data.spiffs.used}/${data.spiffs.total} bytes used\n`;
+            statusText += `Used Sets: ${data.spiffs.usedSets}/${data.spiffs.maxSets}`;
+            document.getElementById("systemStatus").textContent = statusText;
+          })
+          .catch((error) => {
+            console.error("System status error:", error);
+            document.getElementById("systemStatus").textContent =
+              "Error loading system status";
+          });
+      }
+
+      // セット切り替え
+      function switchSet() {
+        const newSet = document.getElementById("setSelector").value;
+        fetch("/api/set-switch", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `set=${newSet}`,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              alert(`Switched to Set ${data.currentSet}`);
+              updateSetInfo();
+            } else {
+              alert("Error switching set: " + data.error);
+            }
+          })
+          .catch((error) => {
+            alert("Network error: " + error);
+          });
+      }
+
+      // カスタム画像のオン/オフ切り替え
+      function toggleCustomImages() {
+        fetch("/api/use-custom", { method: "POST" })
+          .then((response) => response.json())
+          .then((data) => {
+            alert(data.message);
+            updateSystemStatus();
+          })
+          .catch((error) => alert("Error: " + error));
+      }
+
+      // 現在のセットを削除
+      function deleteCurrentSet() {
+        if (confirm(`Delete all images in Set ${currentSet}?`)) {
+          fetch("/api/delete-set", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: `set=${currentSet}`,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              alert(data.message);
+              updateSetInfo();
+              updateSystemStatus();
+            })
+            .catch((error) => alert("Error: " + error));
+        }
+      }
+
+      // 全セット削除
+      function deleteAllSets() {
+        if (
+          confirm("Delete ALL images from ALL sets? This cannot be undone!")
+        ) {
+          fetch("/api/delete-all", { method: "POST" })
+            .then((response) => response.json())
+            .then((data) => {
+              alert(data.message);
+              updateSetInfo();
+              updateSystemStatus();
+            })
+            .catch((error) => alert("Error: " + error));
+        }
+      }
+
+      // 表示リフレッシュ
+      function refreshDisplay() {
+        fetch("/api/refresh", { method: "POST" })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              alert("Display refreshed");
+            }
+          })
+          .catch((error) => alert("Error: " + error));
+      }
+
+      // 画像アップロード（簡素化）
+      function uploadImage(digit) {
+        const fileInput = document.getElementById(`file${digit}`);
+        const file = fileInput.files[0];
+
+        if (!file) {
+          alert("Please select a file first");
+          return;
+        }
+
+        if (file.size > 50000) {
+          alert("File too large. Please use images under 50KB.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        fetch(`/upload?digit=${digit}`, {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.text())
+          .then((data) => {
+            alert(`Upload result: ${data}`);
+            fileInput.value = "";
+            updateSetInfo();
+            updateSystemStatus();
+          })
+          .catch((error) => {
+            alert("Upload error: " + error);
+          });
+      }
+    </script>
+  </body>
+</html>
