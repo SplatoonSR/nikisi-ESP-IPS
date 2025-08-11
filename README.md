@@ -496,6 +496,38 @@ configTime(9 * 3600, 0, ntpServer); // JST (UTC+9)
 - [ ] **PCB 設計**: 専用基板の作成
 - [ ] **ケース設計**: 3D プリント対応
 
+## 📄 ライセンス
+
+このプロジェクトは MIT ライセンスの下で公開されています。詳細は [LICENSE](LICENSE) ファイルをご覧ください。
+
+### プロジェクトライセンス
+
+- ✅ 商用利用可能
+- ✅ 改変・再配布可能
+- ✅ プライベート利用可能
+- ⚠️ ライセンス表示が必要
+
+### 使用ライブラリとそのライセンス
+
+このプロジェクトは以下のオープンソースライブラリを使用しています：
+
+| ライブラリ                                                                            | バージョン | ライセンス   | 用途                          |
+| ------------------------------------------------------------------------------------- | ---------- | ------------ | ----------------------------- |
+| [GFX Library for Arduino](https://github.com/moononournation/Arduino_GFX)             | ^1.4.7     | BSD-3-Clause | ディスプレイ制御              |
+| [ArduinoJson](https://github.com/bblanchon/ArduinoJson)                               | ^7.4.2     | MIT          | JSON 処理                     |
+| [QRCode](https://github.com/ricmoo/QRCode)                                            | ^0.0.1     | MIT          | QR コード生成                 |
+| [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library)              | ^1.12.1    | BSD          | グラフィックス基盤            |
+| [Adafruit ST7735/ST7789 Library](https://github.com/adafruit/Adafruit-ST7735-Library) | ^1.11.0    | BSD          | ST7789 ディスプレイドライバー |
+
+**ライセンス表示義務**：
+
+- 本プロジェクトを使用・配布する際は、上記ライブラリのライセンス条項も併せて遵守してください
+- 各ライブラリの詳細なライセンス内容は、それぞれの GitHub リポジトリをご確認ください
+
+**第三者ライセンス情報**：
+すべての依存ライブラリは、商用利用を含む自由な使用を許可していますが、それぞれのライセンス条項に従ってください。
+詳細なライセンス情報は [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) をご覧ください
+
 ---
 
 **楽しいニキシー管ライフを！** 🎉
