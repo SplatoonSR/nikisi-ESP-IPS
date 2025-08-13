@@ -4,14 +4,19 @@ ESP32-C3 と 6 個の ST7789 TFT ディスプレイを使用した WebUI 対応�
 
 https://github.com/user-attachments/assets/07f6658b-fd32-4206-b1ce-a6842fe732e1
 
-また、issueに使用しているところの動画(容量が重いので注意)
-
-https://github.com/SplatoonSR/nikisi-ESP-IPS/issues/5#issue-3310970903
-
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-ESP32--C3-orange.svg)
 ![Build](https://img.shields.io/badge/build-PlatformIO-green.svg)
 ![Version](https://img.shields.io/badge/version-3.0-red.svg)
+
+Wikiに以下の詳細を記載したので参考（https://github.com/SplatoonSR/nikisi-ESP-IPS/wiki）
+- プログラムの使い方
+- 電子部品
+- 回路図
+- 
+# **使用しているところの動画URL(容量が重いので注意)**
+
+https://github.com/SplatoonSR/nikisi-ESP-IPS/issues/5#issue-3310970903
 
 ## 📋 プロジェクト概要
 
