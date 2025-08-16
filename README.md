@@ -9,15 +9,21 @@ https://github.com/user-attachments/assets/07f6658b-fd32-4206-b1ce-a6842fe732e1
 ![Build](https://img.shields.io/badge/build-PlatformIO-green.svg)
 ![Version](https://img.shields.io/badge/version-3.0-red.svg)
 
-Wikiに以下の詳細を記載したので参考（https://github.com/SplatoonSR/nikisi-ESP-IPS/wiki）
+# Wikiに以下の詳細を記載したので参考（https://github.com/SplatoonSR/nikisi-ESP-IPS/wiki）
 - プログラムの使い方
 - 電子部品
 - 回路図
-- 
+
+# PCBデータと3dプリンタ用のデータは別リポジトリにあります
+# https://github.com/SplatoonSR/PCB-3Dmodel-nikisi-ESP-IPS
+
 # **使用しているところの動画URL(容量が重いので注意)**
+#https://github.com/SplatoonSR/nikisi-ESP-IPS/issues/5#issue-3310970903
 
-https://github.com/SplatoonSR/nikisi-ESP-IPS/issues/5#issue-3310970903
-
+---
+---
+---
+---
 ## 📋 プロジェクト概要
 
 このプロジェクトは、ESP32-C3 マイコンと 6 個の ST7789 TFT ディスプレイを使用して、ニキシー管風のデジタル時計を作成します。**自動 WiFi 設定機能**でどこでも簡単に使用でき、**3 つの画像セット対応**でより多彩なカスタマイズが可能な高機能ニキシー管時計です。
