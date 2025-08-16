@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/07f6658b-fd32-4206-b1ce-a6842fe732e1
 ![Build](https://img.shields.io/badge/build-PlatformIO-green.svg)
 ![Version](https://img.shields.io/badge/version-3.0-red.svg)
 
-# Wikiに以下の詳細を記載したので参考（https://github.com/SplatoonSR/nikisi-ESP-IPS/wiki）
+# Wikiに以下の詳細を記載したので参考（https://github.com/SplatoonSR/nikisi-ESP-IPS/wiki ）
 - プログラムの使い方
 - 電子部品
 - 回路図
