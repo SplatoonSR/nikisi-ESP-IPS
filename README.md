@@ -2,6 +2,8 @@
 
 ESP32-C3 と 6 個の ST7789 TFT ディスプレイを使用した WebUI 対応ニキシー管風デジタル時計
 
+**合計　約4500円で作成可能**
+
 https://github.com/user-attachments/assets/07f6658b-fd32-4206-b1ce-a6842fe732e1
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
